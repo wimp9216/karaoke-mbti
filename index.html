@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カラオケMBTI診断</title>
+<style>
+* { box-sizing: border-box; }
+
+:root {
+  --glass-main: rgba(255,255,255,0.88);
+  --glass-sub:  rgba(255,255,255,0.70);
+  --shadow-main: 0 18px 40px rgba(0,0,0,0.18);
+  --shadow-sub:  0 10px 22px rgba(0,0,0,0.12);
+  --shadow-btn:  0 6px 18px rgba(0,0,0,0.16);
+
+  --neg-strong:#6ea8fe;
+  --neg-weak:#a9c7ff;
+  --neutral:#e5e7eb;
+  --pos-weak:#f9c89b;
+  --pos-strong:#f2a65a;
+
+  /* 16Personalities風 同意=緑 / 不同意=紫 */
+  --agr-strong:#21a366;
+  --agr-mid:#5cc18e;
+  --agr-weak:#a9e0c2;
+  --dis-strong:#8e5cd9;
+  --dis-mid:#b08ae6;
+  --dis-weak:#d8c6f2;
+  --neu:#c9ccd1;
+
+  /* タイプ別グループ色（結果画面で使用） */
+  --type-color:#6ea8fe;
+}
+
+
+
+/* ===== Header ===== */
+.header{
+  position:fixed;
+  inset:0 0 auto 0;
+  padding:18px 28px 14px;
+  backdrop-filter:blur(14px);
+  background:rgba(255,255,255,0.6);
+  z-index:10;
+}
+.header h1{ margin:0 0 10px; text-align:center; }
+.progress-wrap{height:8px;background:#eee;}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,var(--neg-strong),var(--pos-strong));
+  transition:width .3s ease;
+}
+
+/* ===== Stage ===== */
+.stage{ 
+padding-top:90px;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+}
+.deck{
+  position:relative;
+  width:min(1000px,95vw);
+  height:520px;
+}
+
+/* ===== Card Shell ===== */
+.card-shell{
+  position:absolute;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  transition:transform .35s ease, opacity .25s ease;
+}
+.card-shell.active{ transform:translateX(0); opacity:1; z-index:3; }
+.card-shell.prev{ transform:translateX(-40%) scale(.96); opacity:.35; z-index:1; cursor:pointer; }
+.card-shell.next{ transform:translateX(40%) scale(.96); opacity:.35; z-index:1; }
+.card-shell.fade-out{ opacity:0; }
+.card-shell.fade-in{ opacity:.35; }
+
+/* ===== Card ===== */
+.card{
+  width:100%;
+  height:100%;
+  padding:40px;
+  border-radius:28px;
+  backdrop-filter:blur(18px);
+  background:var(--glass-main);
+  box-shadow:var(--shadow-main);
+}
+
+/* ===== Content ===== */
+.content{ position:relative; width:100%; height:100%; }
+.q-text{
+  margin-top:10px;
+  font-size:22px;
+  font-weight:600;
+  text-align:center;
+}
+
+/* ===== Scale ===== */
+.scale{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  display:flex;
+  justify-content:space-between;
+  width:100%;
+  max-width:900px;
+}
+.choice{
+  border-radius:50%;
+  background:#fff;
+  border:3px solid var(--neu);
+  box-shadow:var(--shadow-btn);
+  cursor:pointer;
+  transition:.15s;
+}
+.choice.big{width:96px;height:96px;}
+.choice.mid{width:78px;height:78px;}
+.choice.small{width:62px;height:62px;}
+.choice.tiny{width:50px;height:50px;}
+.choice:hover{
+  transform:translateY(-4px);
+  box-shadow:0 20px 40px rgba(0,0,0,.22);
+}
+
+/* 枠線の色（不同意=紫 / 同意=緑） */
+.choice.dis-strong{border-color:var(--dis-strong);}
+.choice.dis-mid{border-color:var(--dis-mid);}
+.choice.dis-weak{border-color:var(--dis-weak);}
+.choice.neu{border-color:var(--neu);}
+.choice.agr-weak{border-color:var(--agr-weak);}
+.choice.agr-mid{border-color:var(--agr-mid);}
+.choice.agr-strong{border-color:var(--agr-strong);}
+
+/* ホバー・選択時は枠色で塗りつぶす */
+.choice.dis-strong:hover,.choice.dis-strong.selected{background:var(--dis-strong);}
+.choice.dis-mid:hover,.choice.dis-mid.selected{background:var(--dis-mid);}
+.choice.dis-weak:hover,.choice.dis-weak.selected{background:var(--dis-weak);}
+.choice.neu:hover,.choice.neu.selected{background:var(--neu);}
+.choice.agr-weak:hover,.choice.agr-weak.selected{background:var(--agr-weak);}
+.choice.agr-mid:hover,.choice.agr-mid.selected{background:var(--agr-mid);}
+.choice.agr-strong:hover,.choice.agr-strong.selected{background:var(--agr-strong);}
+
+/* ===== selected ===== */
+.choice.selected{
+  box-shadow:
+    0 0 0 3px rgba(0,0,0,.08),
+    0 20px 40px rgba(0,0,0,.25);
+  transform:scale(1.08);
+}
+
+.card-shell.prev .choice{pointer-events:none;}
+
+/* ===== Foot ===== */
+.scale-foot{
+  position:absolute;
+  bottom:10px;
+  width:100%;
+  padding:0 24px;
+  display:flex;
+  justify-content:space-between;
+  color:#666;
+}
+
+/* ===== Result Songs (no scroll / always 3 columns) ===== */
+
+.songs{
+  margin-top:16px;
+  display:flex;
+  justify-content:center;
+  gap:50px;
+}
+
+/* 曲カードをコンパクトに保持 */
+.song-card{
+  width:180px;                 /* 3枚が確実に収まる */
+  padding:8px;
+  background:rgba(255,255,255,.85);
+  border-radius:14px;
+  box-shadow:var(--shadow-sub);
+  text-align:center;
+}
+
+/* ジャケット画像を小さく固定 */
+.song-card img{
+  width:100%;
+  height:110px;                /* ★ ここが最重要 */
+  object-fit:cover;            /* 比率維持 */
+  border-radius:10px;
+  margin-bottom:6px;
+}
+
+/* テキストを少し圧縮 */
+.song-title{
+  font-size:13px;
+  font-weight:600;
+}
+
+.song-artist{
+  font-size:12px;
+  color:#555;
+}
+
+.song-number{
+  font-size:11px;
+  color:#888;
+}
+
+/* 結果画面：見出し中央ぞろえ */
+.content h3{
+  text-align: center;
+}
+
+/* 結果画面の説明文 */
+.content p{
+  text-align: center;
+}
+
+/* 楽曲リンクの見た目を通常カードのままに */
+.song-link{
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+/* ホバー時に「押せる感」を出す（おすすめ） */
+.song-link:hover .song-card{
+  transform: translateY(-4px);
+  box-shadow: 0 18px 36px rgba(0,0,0,0.18);
+  transition: .2s;
+}
+
+/* ===== Retry Button ===== */
+
+.retry-wrap{
+  margin-top: 32px;
+  text-align: center;
+}
+
+.retry-btn{
+  padding: 16px 42px;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--neg-strong), var(--pos-strong));
+  color: #fff;
+  box-shadow: var(--shadow-btn);
+  transition: transform .15s, box-shadow .15s;
+}
+
+.retry-btn:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(0,0,0,.22);
+}
+
+/* 診断結果メインのタイプ名 */
+.mbti-nickname-main{
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 14px;
+  letter-spacing: 0.06em;
+}
+
+/* キャラクター画像表示 */
+.character-wrap{
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 18px;
+}
+
+
+.character-image{
+  width: 360px;
+  height: 470px;            /* 縦長にして判断型バー付近まで届かせる */
+  object-fit: cover;        /* 左右の余白を切る（図は中央寄せ） */
+  object-position: center;
+  transform: none;
+  border-radius: 12px;
+}
+
+
+/* 結果画面専用：カードを縦に大きくする */
+.result-card{
+  min-height: 760px;   /* ★ 好みで 720〜820px に調整可 */
+}
+
+/* 上段：2カラム */
+.result-top{
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 32px;
+  align-items: start;
+  margin-top: 32px;
+}
+
+.result-text{
+  text-align: left;
+  margin-top: 32px;
+}
+
+.result-nickname{
+font-size: 40px;
+  font-weight: 900;
+  line-height: 1.1;
+  margin-bottom: 8px
+}
+
+.result-mbti{
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #666;
+  margin-bottom: 20px; /* 説明文との距離も少し広げる */
+}
+
+.result-description{
+  font-size: 20px;
+  line-height: 1.8;
+  text-align: left;
+
+}
+
+.result-character{
+  display: flex;
+  justify-content: center;
+}
+
+.character-image{
+  width: 360px;
+  height: 470px;           /* 縦長にして判断型バー付近まで届かせる */
+  object-fit: cover;       /* 左右の余白を切る（図は中央寄せ） */
+  object-position: center;
+  transform: none;
+  border-radius: 12px;
+}
+
+.result-bottom{
+  margin-top: 28px;
+  padding-bottom: 20px;
+}
+
+.result-bottom h3{
+  text-align: center;
+}
+
+/* 結果画面だけスクロール可能にする */
+.result-screen{
+  max-width: 1100px;
+  height: auto;
+  overflow: visible;
+  margin: 0 auto;
+  padding-bottom: 20px;
+
+}
+/* ===== TOP Overlay ===== */
+.top-overlay{
+  position: fixed;                 /* 画面基準で固定 */
+  inset: 0;                        /* 上下左右すべて覆う */
+  z-index: 10000;                  /* ヘッダーやカードより前 */
+  background: linear-gradient(135deg,#f8fafd,#eef3fa);
+
+  display: flex;                   /* 中央寄せ */
+  align-items: center;
+  justify-content: center;
+}
+.top-overlay .start-btn{
+  padding: 14px 44px;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 32px;
+  background: linear-gradient(135deg,var(--neg-strong),var(--pos-strong));
+  color: #fff;
+  box-shadow: var(--shadow-btn);
+}
+
+.top-overlay .start-btn:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(0,0,0,.22);
+}
+
+.top-overlay-inner{
+  text-align: center;
+}
+
+.top-overlay h1{ /* TOP画面タイトルサイズ */
+  font-size: 60px;
+  font-weight: 900;
+  margin-bottom: 32px;
+}
+
+.top-overlay button{
+  padding: 14px 44px;
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 32px;
+  background: linear-gradient(135deg,var(--neg-strong),var(--pos-strong));
+  color: #fff;
+}
+
+.top-overlay img{
+  max-width: 1700px;
+  max-height: 55vh;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.top-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: linear-gradient(135deg,#f8fafd,#eef3fa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-overlay-inner{
+  text-align: center;
+  transform: translateY(-40px);
+}
+
+/* ボタンと画像の間隔 */
+.top-image-wrap{
+  margin-top: 24px;
+}
+
+
+/* ===== スマホ完全対応（質問・結果画面） ===== */
+@media (max-width: 768px){
+  
+  @media (max-width: 768px){
+
+/* カードは1枚表示にする */
+.card-shell{
+  position: relative;
+  inset: auto;
+  transform: none !important;
+  width: 100%;
+}
+
+.card-shell.prev,
+.card-shell.next{
+  display: none !important;
+}
+
+/* 回答スケールの absolute を解除 */
+.scale{
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  max-width: 100%;
+  margin-top: 32px;
+}
+
+.scale-foot{
+  position: relative;
+  bottom: auto;
+  margin-top: 16px;
+}
+
+/* 結果画面を1カラムに */
+.result-top{
+  display: block;
+}
+
+}
+
+/* ---------- 共通 ---------- */
+body{
+  overflow-x: hidden;
+}
+
+.deck{
+    width: 100%;        /* ★ 100vw を使わない */
+    max-width: 100%;
+    overflow: hidden;
+    height: auto;       /* 固定高さ解除 */
+}
+
+.card{
+  height: auto;
+  padding: 24px;
+}
+
+/* ---------- 質問画面 ---------- */
+
+.scale{
+  position: relative;      /* absolute解除 */
+  top: auto;
+  left: auto;
+  transform: none;
+  max-width: 100%;
+  margin-top: 32px;
+  justify-content: space-between;
+}
+
+.scale-foot{
+  position: relative;      /* absolute解除 */
+  bottom: auto;
+  margin-top: 20px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.q-text{
+  font-size: 18px;
+}
+
+/* ---------- 結果画面 ---------- */
+
+.result-top{
+  display: block;          /* 2カラム解除 → 縦並び */
+}
+
+.result-text{
+  margin-top: 0;
+  text-align: center;
+}
+
+.result-nickname{
+  font-size: 32px;         /* スマホ用に縮小 */
+}
+
+.result-mbti{
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.result-description{
+  font-size: 17px;
+  line-height: 1.7;
+  text-align: left;
+}
+
+.result-character{
+  margin-top: 24px;
+}
+
+.character-image{
+  width: 240px;
+  height: 240px;
+  transform: none;         /* 拡大解除 */
+}
+
+.result-character .character-image{
+  width: 260px;
+  height: 260px;
+  transform: none; /* 拡大解除 */
+}
+
+.songs{
+  flex-direction: column; /* 横並び → 縦並び */
+  gap: 20px;
+  align-items: center;
+}
+
+.song-card{
+  width: 90%;
+  max-width: 320px;
+}
+}
+
+/* ===== Axis Balance UI ===== */
+
+.axis-area{
+  margin-top: 32px;
+}
+
+.axis-row{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.axis-label{
+  width: 22px;
+  text-align: center;
+  font-weight: 600;
+  color: #666;
+}
+
+.axis-bar{
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+}
+
+.axis-dot{
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, var(--neg-strong), var(--pos-strong));
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.axis-note{
+  margin-top: 12px;
+  font-size: 12px;
+  color: #777;
+  text-align: center;
+}
+
+@media (max-width: 768px){
+
+.choice.big{
+  width: 52px;
+  height: 52px;
+}
+
+.choice.mid{
+  width: 44px;
+  height: 44px;
+}
+
+.choice.small{
+  width: 38px;
+  height: 38px;
+}
+
+.choice.tiny{
+  width: 32px;
+  height: 32px;
+}
+
+.scale{
+    gap: 4px;
+}
+
+.q-text{
+    margin-bottom: 8px;
+}
+
+.card-shell.active .result-screen{
+    height: auto;
+    overflow-y: visible;
+}
+
+body{
+    overflow-y: auto;
+}
+
+.character-image{
+    width: 200px;
+    height: 200px;
+}
+
+.axis-area{
+    margin-top: 16px;
+ }
+
+.axis-row{
+    margin: 10px 0;
+}
+
+
+.result-bottom{
+    margin-top: 24px;
+}
+
+.retry-wrap{
+    margin-top: 24px;
+}
+
+/* ヘッダー分の余白は body.result-mode .stage 側で確保するため 0 */
+.result-screen{
+  padding-top: 0;
+}
+
+.card-shell.active .result-screen{
+    height: auto;
+    overflow: visible;
+}
+
+body{
+    overflow-y: auto;
+}
+
+.result-top{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.result-text{
+    width: 100%;
+    text-align: center;
+}
+
+.character-image{
+    width: 200px;
+    height: 200px;
+    margin: 16px auto;
+    transform: none;
+}
+
+.result-description{
+    text-align: left;
+    margin-top: 12px;
+}
+
+.axis-area{
+    margin-top: 20px;
+}
+
+.result-bottom{
+    margin-top: 28px;
+    padding-bottom: 32px; /* ← 超重要：最下部の安全余白 */
+}
+
+
+}
+
+
+/* ===== 進捗の数値表示 ===== */
+.progress-num{
+  margin-top:6px;
+  text-align:center;
+  font-size:13px;
+  font-weight:700;
+  color:#666;
+  letter-spacing:0.04em;
+}
+
+/* ===== タイプ別グループ色 ===== */
+.theme-analyst{ --type-color:#88619a; } /* 分析家(NT) 紫 */
+.theme-diplomat{ --type-color:#33a474; } /* 外交官(NF) 緑 */
+.theme-sentinel{ --type-color:#4298b4; } /* 番人(SJ) 青 */
+.theme-explorer{ --type-color:#d8a32f; } /* 探検家(SP) 黄 */
+
+/* タイプ色を結果各所へ反映 */
+.result-nickname{ color:var(--type-color); }
+.result-screen .retry-btn{ background:var(--type-color); }
+
+/* グループ・バッジ */
+.result-group{
+  display:inline-block;
+  margin-bottom:10px;
+  padding:4px 14px;
+  font-size:13px;
+  font-weight:700;
+  color:#fff;
+  background:var(--type-color);
+  border-radius:999px;
+  letter-spacing:0.08em;
+}
+
+/* ===== 16Personalities風 軸パーセンテージバー ===== */
+.axis-item{ margin:18px 0; }
+.axis-top{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+  color:#9aa0a6;
+  margin-bottom:7px;
+}
+.axis-top .dom{
+  color:var(--type-color);
+  font-weight:800;
+}
+.axis-track{
+  display:flex;
+  height:10px;
+  border-radius:999px;
+  overflow:hidden;
+  background:#e7e9ee;
+}
+.axis-track .seg{ height:100%; transition:width .6s ease; }
+.axis-track .seg.on{ background:var(--type-color); }
+
+/* ===== シェアボタン ===== */
+.share-wrap{
+  margin-top:18px;
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.share-btn{
+  padding:10px 22px;
+  font-size:14px;
+  font-weight:700;
+  border-radius:999px;
+  border:2px solid var(--type-color);
+  background:#fff;
+  color:var(--type-color);
+  cursor:pointer;
+  transition:.15s;
+}
+.share-btn:hover{
+  background:var(--type-color);
+  color:#fff;
+}
+
+/* ===== 結果表示中のレイアウト（ヘッダーに隠れない・上詰めスクロール） ===== */
+.card-shell.result-shell{
+  position: relative;   /* absolute解除：通常フローで高さを持たせる */
+  inset: auto;
+  transform: none;
+  opacity: 1;
+  z-index: auto;
+}
+body.result-mode .stage{
+  height: auto;
+  min-height: 100vh;
+  align-items: flex-start;   /* 中央寄せ→上寄せ（上が隠れない） */
+  padding-top: 130px;        /* 固定ヘッダー分の余白 */
+  padding-bottom: 48px;
+}
+body.result-mode .deck{
+  height: auto;              /* 固定520px解除：内容に合わせて伸びる */
+}
+
+
+</style>
+</head>
+
+<body>
+  <!-- ===== TOP Overlay ===== -->
+
+  <div class="top-overlay" id="topOverlay">
+    <div class="top-overlay-inner">
+  
+      <!-- ① タイトル -->
+      <h1>カラオケ性格診断</h1>
+  
+      <!-- ② 診断開始ボタン -->
+      <button id="startBtn" class="start-btn" type="button">
+        診断開始
+      </button>
+  
+      <!-- ③ 画像 -->
+      <div class="top-image-wrap">
+        <img src="character/All.png" alt="MBTI Characters">
+      </div>
+  
+    </div>
+  </div>
+  
+
+<div class="header">
+  <h1>カラオケ性格診断</h1>
+  <div class="progress-wrap"><div id="bar" class="progress-bar"></div></div>
+  <div id="progressNum" class="progress-num">1 / 20</div>
+</div>
+
+<div class="stage">
+  <div id="deck" class="deck"></div>
+</div>
+
+<script>
+const deck=document.getElementById("deck");
+const bar=document.getElementById("bar");
+
+// 7段階（左=当てはまらない/紫 ～ 右=当てはまる/緑）
+const SCALE=[
+  {v:-1,    cls:"big dis-strong"},
+  {v:-0.66, cls:"mid dis-mid"},
+  {v:-0.33, cls:"small dis-weak"},
+  {v:0,     cls:"tiny neu"},
+  {v:0.33,  cls:"small agr-weak"},
+  {v:0.66,  cls:"mid agr-mid"},
+  {v:1,     cls:"big agr-strong"}
+];
+
+/* =========================================================
+   診断データ（旧バックエンドから移植：サーバー不要で動作）
+   ========================================================= */
+
+// 質問（id / axis / direction / text）
+const QUESTIONS=[
+  {id:"Q1",axis:"E_I",direction:1,text:"カラオケが始まったとき、自分から最初に歌うことが多い"},
+  {id:"Q2",axis:"E_I",direction:1,text:"歌っていない時間も、周りの反応に目を配っているほうだ"},
+  {id:"Q3",axis:"E_I",direction:1,text:"人が多いほど、カラオケは楽しく感じる"},
+  {id:"Q4",axis:"E_I",direction:1,text:"場の雰囲気を見て、自分が出るか引くかを調整することが多い"},
+  {id:"Q_TRAP_EI",axis:"E_I",direction:-1,text:"正直に言うと、盛り上がっている場でも『一人になりたい』と感じる瞬間がある"},
+
+  {id:"Q5",axis:"S_N",direction:1,text:"メロディーを聴くと、この先の展開を自然と予想してしまう"},
+  {id:"Q6",axis:"S_N",direction:1,text:"曲を選ぶとき、具体的な歌いやすさより雰囲気を重視する"},
+  {id:"Q7",axis:"S_N",direction:1,text:"歌詞の意味を自分なりに解釈するのが楽しい"},
+  {id:"Q8",axis:"S_N",direction:1,text:"映像や情景が浮かぶ曲に惹かれる"},
+  {id:"Q_TRAP_SN",axis:"S_N",direction:-1,text:"現実的な理由よりも、『なんとなく惹かれる』という感覚で選択することが多い"},
+
+  {id:"Q9",axis:"T_F",direction:1,text:"歌っているとき、その曲に自分の気持ちを重ねてしまう"},
+  {id:"Q10",axis:"T_F",direction:1,text:"少し失敗しても、気持ちが乗っていれば満足できる"},
+  {id:"Q11",axis:"T_F",direction:1,text:"他の人の歌を聴いて、感情が動くことが多い"},
+  {id:"Q12",axis:"T_F",direction:1,text:"歌の上手さより、想いが伝わるかを重視する"},
+  {id:"Q_TRAP_TF",axis:"T_F",direction:-1,text:"感情で決めたあと、理屈を後付けして正当化することがある"},
+
+  {id:"Q13",axis:"J_P",direction:1,text:"その場の流れを見て、直前に歌う曲を変えることがある"},
+  {id:"Q14",axis:"J_P",direction:1,text:"次に何を歌うかは、自分の順番が回ってきてから決めることが多い"},
+  {id:"Q15",axis:"J_P",direction:1,text:"順番や予定よりも、そのときの気分を優先する"},
+  {id:"Q16",axis:"J_P",direction:1,text:"予想外の選曲をするのが楽しいと感じる"},
+  {id:"Q_TRAP_JP",axis:"J_P",direction:-1,text:"『ちゃんと決めておけばよかった』と後から思うことが多い"}
+];
+
+// MBTIタイプごとの診断文（nickname はキャラ画像ファイル名にも対応）
+const MBTI_DESCRIPTIONS={
+  ENFP:{nickname:"ムードメーカーMC",title:"場に明るさをもたらすムードメーカー",text:"人の集まる空間に自然となじみ、場の空気を明るく動かしていく力を持つタイプです。\n選曲でも一体感やノリを意識し、カラオケ全体の雰囲気を引き上げる役割を担うことが多いでしょう。"},
+  ENTP:{nickname:"トリックスターDJ",title:"流れを変える発想派セレクター",text:"型にはまらない発想で、場の流れに新しい刺激を与えることができるタイプです。\n定番に寄りすぎず、その瞬間のひらめきを選曲に反映します。"},
+  ENFJ:{nickname:"カラオケプロデューサー",title:"全体を見渡すカラオケプロデューサー",text:"その場にいる人たちの様子をよく捉え、今必要とされている空気を自然に作り出します。\n選曲も場の流れやメンバー構成を踏まえたものになりやすいでしょう。"},
+  ENTJ:{nickname:"セットリスト設計者",title:"完成度を重視するセットリスト設計者",text:"全体の構成や流れを意識しながら、安定感のある選曲を組み立てていくタイプです。\nカラオケをひとつの「場」として捉え、完成度を高めようとします。"},
+  ESFP:{nickname:"ステージエンターテイナー",title:"その瞬間を楽しむエンターテイナー",text:"今この場を全力で楽しむエネルギーを持ち、自然と周囲の視線を集めるタイプです。\nテンポやノリを重視した選曲が多くなります。"},
+  ESTP:{nickname:"ノリ特化プレイヤー",title:"勢いで場を動かすプレイヤー",text:"場の空気を肌感覚でつかみ、直感的に盛り上がりへと乗せていくタイプです。\n深く考えすぎず、その場のノリを大切にします。"},
+  ESFJ:{nickname:"安心感シンガー",title:"場を支える安心感のあるシンガー",text:"その場にいる人たちが心地よく過ごせるよう、自然と調和を取ろうとするタイプです。\n定番曲や聴きやすい選曲で、空気を安定させる存在になりやすいでしょう。"},
+  ESTJ:{nickname:"鉄板ソング請負人",title:"安定感ある王道派セレクター",text:"信頼感と堅実さをもって、外れにくい選曲を自然に選び取るタイプです。\n場の流れを崩さないことを重視します。"},
+  INFP:{nickname:"世界観シンガー",title:"内面世界を大切にするセンシティブシンガー",text:"歌詞やメロディの持つ世界観に自然と引き込まれ、その空気感を大切にするタイプです。\n静かに想いが伝わる楽曲を好む傾向があります。"},
+  INTP:{nickname:"音楽評論家",title:"構造を見つめる音楽探究者",text:"楽曲の構成や完成度に目が向き、流行よりも中身を重視するタイプです。\n冷静に聴きながら、独自の評価軸を持っています。"},
+  INFJ:{nickname:"メッセージボーカリスト",title:"想いの温度を伝えるボーカリスト",text:"歌に込められた意味や背景を自然に読み取り、その想いを大切にするタイプです。\n聴く人の心にそっと届く選曲になりやすいでしょう。"},
+  INTJ:{nickname:"サウンドストラテジスト",title:"全体像を描く戦略的シンガー",text:"場の構成や流れを俯瞰しながら、静と動のバランスを意識して選曲するタイプです。\n完成度の高い組み立てを好みます。"},
+  ISFP:{nickname:"気分派アーティスト",title:"感性に正直なナチュラルアーティスト",text:"そのときの気分や感情を大切にしながら、自然体で歌うことができるタイプです。\n飾らない表現が魅力になります。"},
+  ISTP:{nickname:"職人系シンガー",title:"淡々と歌い上げる職人気質",text:"流行に流されすぎず、自分が納得できるスタイルを貫くタイプです。\n無駄のない選曲や歌い方が特徴です。"},
+  ISFJ:{nickname:"定番サポーター",title:"場を下支えするサポーター",text:"カラオケ全体の安定感を意識しながら、聴きやすい選曲で場を支えるタイプです。\n安心感を与える存在になりやすいでしょう。"},
+  ISTJ:{nickname:"クラシックマスター",title:"王道を大切にするクラシックマスター",text:"実績のある楽曲や定番を重視し、堅実な選曲を積み重ねていくタイプです。\nブレにくい姿勢が場の安定につながります。"}
+};
+
+// 楽曲データ（軸ベクトル＋メタ情報）
+const SONGS=[
+  {title:"ライラック",artist:"Mrs. GREEN APPLE",number:"1447-11",jacket:"ライラック_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1447-11",E_I:0.4,S_N:-0.2,T_F:0.6,J_P:0.3},
+  {title:"怪獣の花唄",artist:"Vaundy",number:"5277-09",jacket:"怪獣の花唄_Vaundy.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5277-09",E_I:0.9,S_N:0.1,T_F:0.7,J_P:0.5},
+  {title:"残酷な天使のテーゼ",artist:"高橋洋子",number:"1896-04",jacket:"残酷な天使のテーゼ_高橋洋子.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1896-04",E_I:0.8,S_N:0.4,T_F:0.3,J_P:0.2},
+  {title:"サウダージ",artist:"ポルノグラフィティ",number:"6167-17",jacket:"サウダージ_ポルノグラフィティ.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6167-17",E_I:0.6,S_N:0.2,T_F:0.4,J_P:0.1},
+  {title:"マリーゴールド",artist:"あいみょん",number:"5171-36",jacket:"マリーゴールド_あいみょん.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5171-36",E_I:-0.1,S_N:-0.7,T_F:0.7,J_P:0.0},
+  {title:"さよならエレジー",artist:"菅田将暉",number:"6052-97",jacket:"さよならエレジー_菅田将暉.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6052-97",E_I:0.3,S_N:-0.4,T_F:0.6,J_P:0.2},
+  {title:"かわいいだけじゃだめですか？",artist:"CUTIE STREET",number:"5538-64",jacket:"かわいいだけじゃだめですか？_CUTIE-STREET.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5538-64",E_I:0.9,S_N:-0.6,T_F:0.4,J_P:0.8},
+  {title:"ドライフラワー",artist:"優里",number:"6844-05",jacket:"ドライフラワー_優里.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6844-05",E_I:-0.6,S_N:-0.3,T_F:0.9,J_P:-0.2},
+  {title:"ダーリン",artist:"Mrs. GREEN APPLE",number:"1447-17",jacket:"ダーリン_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1447-17",E_I:0.2,S_N:0.0,T_F:0.6,J_P:0.1},
+  {title:"小さな恋のうた",artist:"MONGOL800",number:"6878-04",jacket:"小さな恋の歌_MONGOL800.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6878-04",E_I:1.0,S_N:-0.5,T_F:0.4,J_P:0.6},
+  {title:"ケセラセラ",artist:"Mrs. GREEN APPLE",number:"1314-68",jacket:"ケセラセラ_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1314-68",E_I:0.7,S_N:0.2,T_F:0.6,J_P:0.4},
+  {title:"水平線",artist:"back number",number:"5862-13",jacket:"水平線_back number.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5862-13",E_I:-0.5,S_N:-0.4,T_F:0.8,J_P:-0.2},
+  {title:"高嶺の花子さん",artist:"back number",number:"5860-81",jacket:"高嶺の花子さん_back number.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5860-81",E_I:0.6,S_N:-0.3,T_F:0.5,J_P:0.4},
+  {title:"点描の唄(feat.井上苑子)",artist:"Mrs. GREEN APPLE",number:"6197-71",jacket:"点描の唄(feat.井上苑子)_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6197-71",E_I:-0.2,S_N:0.3,T_F:0.8,J_P:0.1},
+  {title:"チェリー",artist:"スピッツ",number:"3171-14",jacket:"チェリー_スピッツ.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=3171-14",E_I:-0.3,S_N:-0.5,T_F:0.6,J_P:-0.1},
+  {title:"奏(かなで)",artist:"スキマスイッチ",number:"5025-04",jacket:"奏(かなで)_スキマスイッチ.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5025-04",E_I:-0.7,S_N:-0.4,T_F:0.9,J_P:-0.3},
+  {title:"366日",artist:"HY",number:"3284-57",jacket:"366日_HY.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=3284-57",E_I:-0.6,S_N:-0.3,T_F:0.8,J_P:-0.2},
+  {title:"晩餐歌",artist:"tuki.",number:"5476-97",jacket:"晩餐歌_tuki..jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5476-97",E_I:-0.4,S_N:0.6,T_F:0.7,J_P:0.2},
+  {title:"青と夏",artist:"Mrs. GREEN APPLE",number:"6197-70",jacket:"青と夏_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6197-70",E_I:0.8,S_N:-0.2,T_F:0.6,J_P:0.5},
+  {title:"シングルベッド",artist:"シャ乱Q",number:"2975-03",jacket:"シングルベッド_シャ乱Q.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=2975-03",E_I:-0.3,S_N:-0.4,T_F:0.7,J_P:-0.1},
+  {title:"ひまわりの約束",artist:"秦 基博",number:"5617-21",jacket:"ひまわりの約束_秦基博.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5617-21",E_I:-0.5,S_N:-0.3,T_F:0.6,J_P:-0.2},
+  {title:"丸の内サディスティック",artist:"椎名林檎",number:"5833-09",jacket:"丸の内サディスティック_椎名林檎.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5833-09",E_I:0.1,S_N:0.2,T_F:-0.1,J_P:0.4},
+  {title:"チャンカパーナ",artist:"NEWS",number:"6298-87",jacket:"チャンカパーナ_NEWS.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6298-87",E_I:0.8,S_N:-0.6,T_F:0.2,J_P:0.6},
+  {title:"最後の雨",artist:"中西保志",number:"2453-01",jacket:"最後の雨_中西保志.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=2453-01",E_I:-0.5,S_N:-0.2,T_F:0.8,J_P:-0.2},
+  {title:"Story",artist:"AI",number:"6953-17",jacket:"Story_AI.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6953-17",E_I:0.2,S_N:-0.1,T_F:0.7,J_P:0.1},
+  {title:"Soranji",artist:"Mrs. GREEN APPLE",number:"5432-49",jacket:"Soranji_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5432-49",E_I:-0.4,S_N:0.4,T_F:0.7,J_P:0.3},
+  {title:"愛のかたまり",artist:"KinKi Kids",number:"5286-71",jacket:"愛のかたまり_KinKi Kids.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5286-71",E_I:-0.2,S_N:-0.3,T_F:0.8,J_P:-0.1},
+  {title:"ハナミズキ",artist:"一青 窈",number:"4368-24",jacket:"ハナミズキ_一青窈.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=4368-24",E_I:-0.4,S_N:-0.4,T_F:0.7,J_P:-0.2},
+  {title:"大阪LOVER",artist:"DREAMS COME TRUE",number:"7243-32",jacket:"大阪LOVER_DREAMS COME TRUE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7243-32",E_I:0.7,S_N:-0.3,T_F:0.5,J_P:0.3},
+  {title:"糸",artist:"中島みゆき",number:"2463-35",jacket:"糸_中島みゆき.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=2463-35",E_I:-0.8,S_N:0.5,T_F:0.9,J_P:-0.3},
+  {title:"恋人ごっこ",artist:"マカロニえんぴつ",number:"5267-93",jacket:"恋人ごっこ_マカロニえんぴつ.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5267-93",E_I:0.3,S_N:-0.4,T_F:0.6,J_P:0.3},
+  {title:"世界が終るまでは…",artist:"WANDS",number:"1312-16",jacket:"世界が終わるまでは…_WANDS.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1312-16",E_I:0.4,S_N:0.2,T_F:0.6,J_P:0.1},
+  {title:"Bling-Bang-Bang-Born",artist:"Creepy Nuts",number:"1287-16",jacket:"Bling-Bang-Bang-Born_Creepy Nuts.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1287-16",E_I:1.0,S_N:0.3,T_F:0.1,J_P:0.9},
+  {title:"愛をこめて花束を",artist:"Superfly",number:"4190-04",jacket:"愛をこめて花束を_Superfly.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=4190-04",E_I:0.3,S_N:-0.1,T_F:0.8,J_P:0.0},
+  {title:"幾億光年",artist:"Omoinotake",number:"5487-71",jacket:"幾億光年_Omoinotake.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5487-71",E_I:-0.4,S_N:0.4,T_F:0.7,J_P:0.2},
+  {title:"キセキ",artist:"GReeeeN",number:"7401-20",jacket:"キセキ_GreeeeN.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7401-20",E_I:0.6,S_N:-0.2,T_F:0.7,J_P:0.4},
+  {title:"Lemon",artist:"米津玄師",number:"3246-51",jacket:"Lemon_米津玄師.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=3246-51",E_I:-0.2,S_N:0.7,T_F:0.8,J_P:0.0},
+  {title:"カブトムシ",artist:"aiko",number:"5772-05",jacket:"カブトムシ_aiko.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=5772-05",E_I:-0.1,S_N:-0.4,T_F:0.7,J_P:0.1},
+  {title:"Bunny Girl",artist:"AKASAKI",number:"1430-11",jacket:"Bunny Girl_AKASAKI.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1430-11",E_I:0.8,S_N:0.2,T_F:0.3,J_P:0.7},
+  {title:"アイノカタチ feat.HIDE(GReeeeN)",artist:"MISIA",number:"6578-82",jacket:"アイノカタチ_MISIA.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6578-82",E_I:0.2,S_N:-0.2,T_F:0.8,J_P:0.0},
+  {title:"島人ぬ宝",artist:"BEGIN",number:"1036-13",jacket:"島人ぬ宝_BEGIN.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1036-13",E_I:0.6,S_N:-0.1,T_F:0.6,J_P:0.2},
+  {title:"怪獣",artist:"サカナクション",number:"1025-98",jacket:"怪獣_サカナクション.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=1025-98",E_I:0.3,S_N:0.6,T_F:-0.1,J_P:0.6},
+  {title:"イケナイ太陽",artist:"ORANGE RANGE",number:"7308-24",jacket:"イケナイ太陽_ORANGE RANGE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7308-24",E_I:1.0,S_N:-0.5,T_F:0.4,J_P:0.7},
+  {title:"気まぐれロマンティック",artist:"いきものがかり",number:"7219-75",jacket:"気まぐれロマンティック_いきものがかり.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7219-75",E_I:0.7,S_N:-0.4,T_F:0.5,J_P:0.6},
+  {title:"僕のこと",artist:"Mrs. GREEN APPLE",number:"6181-96",jacket:"僕のこと_Mrs. GREEN APPLE.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6181-96",E_I:0.5,S_N:-0.2,T_F:0.7,J_P:0.3},
+  {title:"歌うたいのバラッド",artist:"斉藤和義",number:"3010-13",jacket:"歌うたいのバラッド_斉藤和義.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=3010-13",E_I:-0.9,S_N:-0.3,T_F:0.9,J_P:-0.4},
+  {title:"シンデレラボーイ",artist:"Saucy Dog",number:"6949-99",jacket:"シンデレラボーイ_Saucy Dog.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6949-99",E_I:0.2,S_N:-0.2,T_F:0.6,J_P:0.2},
+  {title:"シャルル",artist:"バルーン",number:"7638-86",jacket:"シャルル_バルーン.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7638-86",E_I:-0.1,S_N:0.5,T_F:0.7,J_P:0.4},
+  {title:"コイスルオトメ",artist:"いきものがかり",number:"7219-02",jacket:"コイスルオトメ_いきものがかり.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7219-02",E_I:0.5,S_N:-0.4,T_F:0.6,J_P:0.3},
+  {title:"花束のかわりにメロディーを",artist:"清水翔太",number:"6919-39",jacket:"花束の代わりにメロディーを_清水翔太.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6919-39",E_I:0.2,S_N:-0.2,T_F:0.8,J_P:0.1}
+];
+
+/* =========================================================
+   診断ロジック（旧 scorer / mbti / recommender を移植）
+   ========================================================= */
+const THRESHOLD=0.25;
+
+function scoreAnswers(qs,ans){
+  const scores={E_I:0,S_N:0,T_F:0,J_P:0};
+  const counts={E_I:0,S_N:0,T_F:0,J_P:0};
+  for(const q of qs){
+    if(!(q.id in ans)) continue;
+    scores[q.axis]+=ans[q.id]*q.direction;
+    counts[q.axis]++;
+  }
+  for(const ax in scores){ if(counts[ax]>0) scores[ax]/=counts[ax]; }
+  return scores;
+}
+
+function judgeAxis(score,pos,neg){
+  if(score>THRESHOLD) return pos;
+  if(score<-THRESHOLD) return neg;
+  return Math.random()<0.5?pos:neg; // 差が小さい場合は揺らぎを許容
+}
+
+function determineMbti(s){
+  return judgeAxis(s.E_I,"E","I")+judgeAxis(s.S_N,"S","N")+
+         judgeAxis(s.T_F,"T","F")+judgeAxis(s.J_P,"J","P");
+}
+
+function axisPosition(val,maxAbs=4.0){
+  if(Math.abs(val)<0.3) return 50;
+  const v=Math.max(-maxAbs,Math.min(maxAbs,val));
+  return Math.trunc((v+maxAbs)/(2*maxAbs)*100);
+}
+
+function getEiSuffix(mbti,trap){
+  const primary=mbti[0];
+  if(trap===undefined||trap===null||Math.abs(trap)<0.3) return "-"+primary;
+  if(primary==="E") return trap>0?"-e":"-E";
+  return trap<0?"-i":"-I";
+}
+
+function recommend(scores,topN=3){
+  return SONGS
+    .map(s=>({s,d:Math.hypot(s.E_I-scores.E_I,s.S_N-scores.S_N,s.T_F-scores.T_F,s.J_P-scores.J_P)}))
+    .sort((a,b)=>a.d-b.d)
+    .slice(0,topN)
+    .map(x=>x.s);
+}
+
+// 旧 /diagnose API と同じ形のオブジェクトを返す
+function diagnose(answers){
+  const scores=scoreAnswers(QUESTIONS,answers);
+  const mbti=determineMbti(scores);
+  const diag=MBTI_DESCRIPTIONS[mbti];
+  const display_mbti=mbti+getEiSuffix(mbti,answers["Q_TRAP_EI"]);
+  return {
+    mbti,
+    display_mbti,
+    nickname:diag.nickname,
+    title:diag.title,
+    description:diag.text,
+    character_image:`character/${mbti}_${diag.nickname}.png`,
+    scores,
+    axis_position:{
+      E_I:axisPosition(scores.E_I),
+      S_N:axisPosition(scores.S_N),
+      T_F:axisPosition(scores.T_F),
+      J_P:axisPosition(scores.J_P)
+    },
+    recommended_songs:recommend(scores,3).map(s=>({
+      title:s.title,
+      artist:s.artist,
+      number:s.number,
+      jacket_path:`jacket/${s.jacket}`,
+      link:s.link
+    }))
+  };
+}
+
+let questions=QUESTIONS,current=0,answers={},anim=false;
+
+const progressNum=document.getElementById("progressNum");
+
+function updateBar(){
+  bar.style.width=(current/questions.length*100)+"%";
+  const n=Math.min(current+1,questions.length);
+  progressNum.textContent=`${n} / ${questions.length}`;
+}
+
+// MBTI を4グループに分類（結果画面のテーマ色・バッジ用）
+function typeGroup(mbti){
+  const isN=mbti.includes("N"), isT=mbti.includes("T"), isJ=mbti.includes("J");
+  if(isN&&isT)  return {cls:"theme-analyst",  name:"分析家"};
+  if(isN&&!isT) return {cls:"theme-diplomat", name:"外交官"};
+  if(!isN&&isJ) return {cls:"theme-sentinel", name:"番人"};
+  return {cls:"theme-explorer", name:"探検家"};
+}
+
+// 16Personalities風の軸バーHTMLを生成
+// pos = 0〜100（正の特性 E/S/T/J 側の割合）
+function axisRow(pos,leftName,rightName){
+  const left=Math.round(pos), right=100-left;
+  const domLeft=left>=right;
+  return `
+    <div class="axis-item">
+      <div class="axis-top">
+        <span class="${domLeft?'dom':''}">${leftName} ${left}%</span>
+        <span class="${domLeft?'':'dom'}">${right}% ${rightName}</span>
+      </div>
+      <div class="axis-track">
+        <div class="seg ${domLeft?'on':''}" style="width:${left}%"></div>
+        <div class="seg ${domLeft?'':'on'}" style="width:${right}%"></div>
+      </div>
+    </div>`;
+}
+
+function buildAxes(ap){
+  return (
+    axisRow(ap.E_I,"外向型","内向型")+
+    axisRow(ap.S_N,"感覚型","直観型")+
+    axisRow(ap.T_F,"思考型","感情型")+
+    axisRow(ap.J_P,"判断型","知覚型")
+  );
+}
+
+function render(){
+  deck.innerHTML="";
+  if(current>0) deck.appendChild(makeCard(current-1,"prev"));
+  deck.appendChild(makeCard(current,"active"));
+  if(current+1<questions.length)
+    deck.appendChild(makeCard(current+1,"next"));
+}
+
+function makeCard(i,pos){
+  const el=document.createElement("div");
+  el.className=`card-shell ${pos}`;
+  el.innerHTML=`
+    <div class="card">
+      <div class="content">
+        <div class="q-text">${questions[i].text}</div>
+        <div class="scale">
+          ${SCALE.map(s=>`<div class="choice ${s.cls}" data-v="${s.v}"></div>`).join("")}
+        </div>
+        <div class="scale-foot">
+          <span>当てはまらない</span>
+          <span>当てはまる</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if(answers[questions[i].id]!==undefined){
+    const sel=el.querySelector(`.choice[data-v="${answers[questions[i].id]}"]`);
+    if(sel) sel.classList.add("selected");
+  }
+
+  if(pos==="active"){
+    el.querySelectorAll(".choice").forEach(btn=>{
+      btn.onclick=()=>{
+        if(anim)return;
+        anim=true;
+
+        el.querySelectorAll(".choice").forEach(c=>c.classList.remove("selected"));
+        btn.classList.add("selected");
+
+        answers[questions[current].id]=Number(btn.dataset.v);
+
+        const prev=document.querySelector(".card-shell.prev");
+        const next=document.querySelector(".card-shell.next");
+
+        if(prev) prev.classList.add("fade-out");
+
+        if(current+2<questions.length){
+          const newNext=makeCard(current+2,"next");
+          newNext.style.opacity="0";
+          deck.appendChild(newNext);
+          requestAnimationFrame(()=>newNext.classList.add("fade-in"));
+        }
+
+        el.classList.remove("active");
+        el.classList.add("prev");
+
+        if(next){
+          next.classList.remove("next");
+          next.classList.add("active");
+        }
+
+        setTimeout(()=>{
+          current++;
+          anim=false;
+
+          if(current === questions.length){
+            fetchResult();   // ← ★ ここが今回の修正点
+          }else{
+            updateBar();
+            render();
+          }
+        },350);
+      };
+    });
+  }
+
+  if(pos==="prev"){
+    el.onclick=()=>{
+      if(anim)return;
+      anim=true;
+
+      const active=document.querySelector(".card-shell.active");
+      active.classList.remove("active");
+      active.classList.add("next","fade-out");
+
+      el.classList.remove("prev");
+      el.classList.add("active");
+
+      setTimeout(()=>{
+        current=i;
+        for(let k=i+1;k<questions.length;k++)
+          delete answers[questions[k].id];
+        anim=false;
+        updateBar();
+        render();
+      },350);
+    };
+  }
+
+  return el;
+}
+
+
+function fetchResult(){
+  bar.style.width = "100%"
+  document.body.classList.add("result-mode");
+
+  const d = diagnose(answers);
+  deck.innerHTML="";
+
+    const g = typeGroup(d.mbti);
+
+    const res=document.createElement("div");
+    res.className="card-shell active result-shell";
+
+    res.innerHTML = `
+      <div class="result-screen ${g.cls}">
+
+      <!-- 上段：左テキスト / 右キャラ -->
+      <div class="result-top">
+
+        <div class="result-text">
+          <div class="result-group">${g.name}</div>
+          <div class="result-nickname">${d.nickname}</div>
+          <div class="result-mbti">${d.display_mbti}</div>
+
+          <div class="result-description">
+            ${d.description}
+          </div>
+
+          <div class="axis-area">
+            ${buildAxes(d.axis_position)}
+            <div class="axis-note">
+              ※ バーは、それぞれの特性のバランスを表しています
+            </div>
+          </div>
+        </div>
+
+        <div class="result-character">
+          <img src="${d.character_image}" class="character-image">
+        </div>
+
+      </div>
+
+      <!-- 下段：楽曲 -->
+      <div class="result-bottom">
+        <h3>おすすめ楽曲</h3>
+
+        <div class="songs">
+          ${d.recommended_songs.map(s=>`
+            <a class="song-link" href="${s.link}" target="_blank" rel="noopener">
+              <div class="song-card">
+                <img src="${s.jacket_path}">
+                <div class="song-title">${s.title}</div>
+                <div class="song-artist">${s.artist}</div>
+                <div class="song-number">${s.number}</div>
+              </div>
+            </a>
+          `).join("")}
+        </div>
+
+        <div class="share-wrap">
+          <button id="copyBtn" class="share-btn" type="button">結果をコピー</button>
+          <button id="shareBtn" class="share-btn" type="button">シェアする</button>
+        </div>
+
+        <div class="retry-wrap">
+          <button id="retryBtn" class="retry-btn">もう一度診断する</button>
+        </div>
+      </div>
+
+      </div>
+    `;
+
+    deck.appendChild(res);
+
+    /* ★ 結果のコピー / シェア */
+    const shareText = `カラオケ性格診断の結果は「${d.nickname}（${d.display_mbti}）」でした！`;
+    const shareUrl = location.href;
+    const copyBtn = document.getElementById("copyBtn");
+    const shareBtn = document.getElementById("shareBtn");
+
+    function flash(btn,msg){
+      const old=btn.textContent;
+      btn.textContent=msg;
+      setTimeout(()=>{ btn.textContent=old; },1500);
+    }
+    function copyResult(){
+      const text=shareText+" "+shareUrl;
+      if(navigator.clipboard && window.isSecureContext){
+        navigator.clipboard.writeText(text)
+          .then(()=>flash(copyBtn,"コピーしました"))
+          .catch(()=>fallbackCopy(text));
+      }else{
+        fallbackCopy(text);
+      }
+    }
+    function fallbackCopy(text){
+      const ta=document.createElement("textarea");
+      ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand("copy"); flash(copyBtn,"コピーしました"); }
+      catch(e){ flash(copyBtn,"コピーできません"); }
+      document.body.removeChild(ta);
+    }
+
+    copyBtn.onclick=copyResult;
+    shareBtn.onclick=()=>{
+      if(navigator.share){
+        navigator.share({title:"カラオケ性格診断",text:shareText,url:shareUrl}).catch(()=>{});
+      }else{
+        copyResult();
+      }
+    };
+
+    /* ★ もう一度診断する */
+    document.getElementById("retryBtn").onclick = () => {
+      current = 0;
+      answers = {};
+      bar.style.width = "0%";
+      progressNum.textContent = `1 / ${questions.length}`;
+
+      // ★ 結果表示モードを解除して質問画面レイアウトに戻す
+      document.body.classList.remove("result-mode");
+      deck.style.height = "";
+
+      render();
+    };
+}
+const topOverlay = document.getElementById("topOverlay");
+const startBtn = document.getElementById("startBtn");
+
+startBtn.onclick = () => {
+  topOverlay.style.display = "none";
+};
+
+// ===== 初期表示 =====
+render();
+updateBar();
+</script>
+
+
+</body>
+</html>
