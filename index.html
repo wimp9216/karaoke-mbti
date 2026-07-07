@@ -281,8 +281,8 @@ padding-top:90px;
 
 
 .character-image{
-  width: 360px;
-  height: 380px;            /* ほぼ正方形：縦は全身フル・横は中央を広めに取り切れ防止 */
+  width: 460px;
+  height: 480px;            /* ほぼ正方形：縦は全身フル・横は中央を広めに取り切れ防止 */
   object-fit: cover;
   object-position: center;  /* 白背景の左右余白はページ(白)に溶け込む */
   transform: none;
@@ -299,7 +299,7 @@ padding-top:90px;
    左に「見出し(head)＋本文(body)」を縦に、右に「キャラ画像(char)」を配置 */
 .result-top{
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 480px;
   grid-template-areas:
     "head char"
     "body char";
@@ -342,11 +342,12 @@ font-size: 40px;
 .result-character{
   display: flex;
   justify-content: center;
+  margin-top: 40px;   /* 見出し(margin-top:32px)より少し下げ、4本目のバー付近まで下げる */
 }
 
 .character-image{
-  width: 360px;
-  height: 380px;           /* ほぼ正方形：縦は全身フル・横は中央を広めに取り切れ防止 */
+  width: 460px;
+  height: 480px;           /* ほぼ正方形：縦は全身フル・横は中央を広めに取り切れ防止 */
   object-fit: cover;
   object-position: center; /* 白背景の左右余白はページ(白)に溶け込む */
   transform: none;
@@ -1257,6 +1258,224 @@ body{
 /* ▲▲▲ ダークネオンテーマ ここまで */
 
 
+/* =========================================================
+   ▼▼▼ キャラクター図鑑（コレクション）オーバーレイ
+   ========================================================= */
+.dex-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: none;                     /* JSで flex に */
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(8,9,16,0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity .35s ease;     /* ← フェードイン/アウト */
+}
+.dex-overlay.show{ opacity: 1; }
+
+.dex-panel{
+  width: min(920px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, #17131f, #0f1018);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  overflow: hidden;
+  transform: translateY(10px) scale(.98);
+  transition: transform .35s ease;
+}
+.dex-overlay.show .dex-panel{ transform: translateY(0) scale(1); }
+
+.dex-header{
+  position: relative;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+.dex-title{
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255,45,155,.5), 0 0 22px rgba(45,210,255,.35);
+}
+.dex-count-wrap{ margin-top: 5px; font-size: 13px; color: rgba(255,255,255,.65); }
+#dexCount{ color: #ff6fc0; font-weight: 800; }
+.dex-close{
+  position: absolute; top: 12px; right: 14px;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.2);
+  background: rgba(255,255,255,.06); color: #fff;
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.dex-close:hover{ background: rgba(255,255,255,.15); }
+
+.dex-body{ flex: 1; min-height: 0; overflow-y: auto; }
+.dex-grid[hidden], .dex-detail[hidden]{ display: none; }
+
+.dex-grid{
+  padding: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.dex-card{
+  position: relative;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 10px 10px 12px;
+  text-align: center;
+}
+.dex-card.got{ cursor: pointer; transition: transform .12s, border-color .15s, box-shadow .15s; }
+.dex-card.got:hover{
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,.25);
+  box-shadow: 0 10px 26px rgba(0,0,0,.4);
+}
+.dex-card.locked{ opacity: .6; }
+.dex-img{
+  height: 122px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; overflow: hidden; margin-bottom: 8px;
+  background: rgba(0,0,0,0.25);
+}
+.dex-img img{ width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.dex-q{ font-size: 48px; font-weight: 900; color: rgba(255,255,255,0.22); }
+.dex-group{
+  display: inline-block; margin-bottom: 5px; padding: 2px 10px;
+  font-size: 11px; font-weight: 800; color: #fff;
+  background: var(--type-color, #888); border-radius: 999px;
+}
+.dex-name{ font-size: 13px; font-weight: 700; color: #e9eaf2; line-height: 1.3; }
+.dex-mbti{ margin-top: 3px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,0.5); }
+.dex-card.locked .dex-name{ color: rgba(255,255,255,0.4); }
+
+/* 今回追加されたキャラ：強調＋ポップイン演出 */
+.dex-badge{
+  position: absolute; top: -8px; right: -6px; z-index: 2;
+  padding: 3px 10px; font-size: 11px; font-weight: 900; color: #fff;
+  background: linear-gradient(90deg,#ff2d9b,#ff7a3d);
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(255,45,155,.5);
+}
+.dex-card.is-current{
+  border-color: rgba(255,45,155,.7);
+  box-shadow: 0 0 0 2px rgba(255,45,155,.4), 0 0 26px rgba(255,45,155,.4);
+}
+.dex-card.is-new{ animation: dexPop .7s cubic-bezier(.2,1.3,.5,1) both; }
+@keyframes dexPop{
+  0%{ transform: scale(.4); opacity: 0; }
+  60%{ transform: scale(1.08); opacity: 1; }
+  100%{ transform: scale(1); opacity: 1; }
+}
+
+/* ---- 詳細ビュー ---- */
+.dex-detail{ padding: 20px; }
+.dex-detail-back{
+  margin-bottom: 16px; padding: 8px 16px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06);
+  color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.dex-detail-back:hover{ background: rgba(255,255,255,.14); }
+.dex-detail-top{ display: flex; gap: 22px; align-items: center; margin-bottom: 18px; }
+.dex-detail-img{
+  width: 190px; height: 200px; flex-shrink: 0;
+  object-fit: cover; object-position: center; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 0 24px rgba(255,45,155,.2), 0 10px 28px rgba(0,0,0,.5);
+}
+.dex-detail-group{
+  display: inline-block; margin-bottom: 8px; padding: 3px 14px;
+  font-size: 13px; font-weight: 800; color: #fff;
+  background: var(--type-color, #888); border-radius: 999px;
+}
+.dex-detail-name{ font-size: 26px; font-weight: 900; color: #fff; line-height: 1.2; }
+.dex-detail-mbti{ margin-top: 5px; font-size: 14px; font-weight: 700; letter-spacing: .14em; color: rgba(255,255,255,.6); }
+.dex-detail-desc{
+  font-size: 15px; line-height: 1.85; color: #dfe1ec;
+  background: rgba(255,255,255,0.04); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 20px;
+  white-space: pre-line;
+}
+
+/* ---- 出した人メモ（複数人・箇条書き） ---- */
+.dex-people-title{ font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+.dex-people-list{ list-style: none; margin: 0 0 12px; padding: 0; }
+.dex-people-list li{
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; margin: 6px 0;
+  background: rgba(255,255,255,0.05); border-radius: 9px;
+}
+.dex-people-list li::before{ content: "•"; color: var(--type-color, #ff6fc0); font-weight: 900; font-size: 16px; }
+.dex-people-list li .dex-person-name{ flex: 1; color: #e9eaf2; font-size: 14px; word-break: break-all; }
+.dex-people-list li.dex-people-empty{ display: block; background: none; padding: 0; margin: 0 0 12px; color: rgba(255,255,255,.45); font-size: 13px; }
+.dex-people-list li.dex-people-empty::before{ content: none; }
+.dex-people-remove{
+  border: none; background: transparent; color: rgba(255,120,150,.9);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.dex-people-remove:hover{ color: #ff5a86; }
+.dex-people-add{ display: flex; gap: 8px; }
+.dex-people-input{
+  flex: 1; padding: 10px 12px; font-size: 14px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.3); color: #fff;
+}
+.dex-people-input::placeholder{ color: rgba(255,255,255,.4); }
+.dex-people-input:focus{ outline: none; border-color: #ff6fc0; box-shadow: 0 0 0 2px rgba(255,45,155,.3); }
+.dex-people-addbtn{
+  padding: 10px 22px; border-radius: 10px; border: none; cursor: pointer;
+  font-weight: 800; color: #fff; background: linear-gradient(135deg,#ff2d9b,#7a5cff);
+}
+.dex-people-addbtn:hover{ transform: translateY(-1px); }
+
+.dex-foot{
+  padding: 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+}
+.dex-back-btn{
+  padding: 12px 34px; border-radius: 999px; border: none; cursor: pointer;
+  font-size: 15px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg,#ff2d9b,#7a5cff);
+  box-shadow: 0 8px 22px rgba(0,0,0,.4);
+}
+.dex-back-btn:hover{ transform: translateY(-1px); }
+
+/* 結果画面の「図鑑を見る」ボタン */
+.dex-open-btn{
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 14px 34px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,255,255,.5);
+  background: rgba(255,255,255,0.08);
+  color: #fff; font-weight: 800; font-size: 15px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.dex-open-btn:hover{ background: rgba(255,255,255,.16); }
+
+@media (max-width: 768px){
+  .dex-grid{ grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 12px; }
+  .dex-title{ font-size: 20px; }
+  .dex-img{ height: 110px; }
+  .dex-panel{ max-height: 92vh; }
+  .dex-detail{ padding: 16px; }
+  .dex-detail-top{ flex-direction: column; text-align: center; gap: 14px; }
+  .dex-detail-img{ width: 170px; height: 180px; }
+  .dex-detail-name{ font-size: 22px; }
+}
+/* ▲▲▲ キャラクター図鑑 ここまで */
+
+
 </style>
 </head>
 
@@ -1286,6 +1505,24 @@ body{
 
 <div class="stage">
   <div id="deck" class="deck"></div>
+</div>
+
+<!-- ===== キャラクター図鑑（コレクション） ===== -->
+<div id="dexOverlay" class="dex-overlay" aria-hidden="true">
+  <div class="dex-panel">
+    <div class="dex-header">
+      <h2 class="dex-title">キャラクター図鑑</h2>
+      <div class="dex-count-wrap"><span id="dexCount">0 / 16</span> 種類 コンプリート</div>
+      <button id="dexCloseBtn" class="dex-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div class="dex-body">
+      <div id="dexGrid" class="dex-grid"></div>
+      <div id="dexDetail" class="dex-detail" hidden></div>
+    </div>
+    <div class="dex-foot">
+      <button id="dexBackBtn" class="dex-back-btn" type="button">結果に戻る</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1569,44 +1806,49 @@ function makeCard(i,pos){
       btn.onclick=()=>{
         if(anim)return;
         anim=true;
+        deck.style.pointerEvents="none";   // 遷移中はホバー/クリック無効（丸が浮くのを防ぐ）
 
         el.querySelectorAll(".choice").forEach(c=>c.classList.remove("selected"));
         btn.classList.add("selected");
 
         answers[questions[current].id]=Number(btn.dataset.v);
 
-        const prev=document.querySelector(".card-shell.prev");
-        const next=document.querySelector(".card-shell.next");
-
-        if(prev) prev.classList.add("fade-out");
-
-        if(current+2<questions.length){
-          const newNext=makeCard(current+2,"next");
-          newNext.style.opacity="0";      // まず透明で追加
-          deck.appendChild(newNext);
-          void newNext.offsetWidth;        // opacity:0 を確定させる（reflow）
-          newNext.style.opacity="";        // → CSSの透明度へ向けてフェードイン
-        }
-
-        el.classList.remove("active");
-        el.classList.add("prev");
-
-        if(next){
-          next.classList.remove("next");
-          next.classList.add("active");
-        }
-
+        // ★ 点灯（selected）を見せてからカードをスライドさせる
         setTimeout(()=>{
-          current++;
-          anim=false;
+          const prev=document.querySelector(".card-shell.prev");
+          const next=document.querySelector(".card-shell.next");
 
-          if(current === questions.length){
-            fetchResult();   // ← ★ ここが今回の修正点
-          }else{
-            updateBar();
-            render();
+          if(prev) prev.classList.add("fade-out");
+
+          if(current+2<questions.length){
+            const newNext=makeCard(current+2,"next");
+            newNext.style.opacity="0";      // まず透明で追加
+            deck.appendChild(newNext);
+            void newNext.offsetWidth;        // opacity:0 を確定させる（reflow）
+            newNext.style.opacity="";        // → CSSの透明度へ向けてフェードイン
           }
-        },350);
+
+          el.classList.remove("active");
+          el.classList.add("prev");
+
+          if(next){
+            next.classList.remove("next");
+            next.classList.add("active");
+          }
+
+          setTimeout(()=>{
+            current++;
+            anim=false;
+            deck.style.pointerEvents="";
+
+            if(current === questions.length){
+              fetchResult();
+            }else{
+              updateBar();
+              render();
+            }
+          },350);
+        }, 240);   // ← 点灯を見せる時間
       };
     });
   }
@@ -1615,6 +1857,7 @@ function makeCard(i,pos){
     el.onclick=()=>{
       if(anim)return;
       anim=true;
+      deck.style.pointerEvents="none";
 
       const active=document.querySelector(".card-shell.active");
       active.classList.remove("active");
@@ -1628,6 +1871,7 @@ function makeCard(i,pos){
         for(let k=i+1;k<questions.length;k++)
           delete answers[questions[k].id];
         anim=false;
+        deck.style.pointerEvents="";
         updateBar();
         render();
       },350);
@@ -1707,6 +1951,7 @@ function fetchResult(){
         </div>
 
         <div class="retry-wrap">
+          <button id="openDexBtn" class="dex-open-btn" type="button">📖 キャラ図鑑を見る</button>
           <button id="retryBtn" class="retry-btn">もう一度診断する</button>
         </div>
       </div>
@@ -1715,6 +1960,14 @@ function fetchResult(){
     `;
 
     deck.appendChild(res);
+
+    /* ★ キャラ図鑑：取得＆自動表示（追加演出） */
+    const openDexBtn = document.getElementById("openDexBtn");
+    if(openDexBtn) openDexBtn.onclick = () => openDex(d.mbti, d.display_mbti);
+    clearTimeout(dexAutoTimer);
+    dexAutoTimer = setTimeout(() => {
+      if(document.body.classList.contains("result-mode")) openDex(d.mbti, d.display_mbti);
+    }, 1800);
 
     /* ★ 結果のコピー / シェア */
     const shareText = `カラオケ性格診断の結果は「${d.nickname}（${d.display_mbti}）」でした！`;
@@ -1757,6 +2010,8 @@ function fetchResult(){
 
     /* ★ もう一度診断する */
     document.getElementById("retryBtn").onclick = () => {
+      clearTimeout(dexAutoTimer);
+      closeDex();
       current = 0;
       answers = {};
       bar.style.width = "0%";
@@ -1769,6 +2024,216 @@ function fetchResult(){
       render();
     };
 }
+
+/* =========================================================
+   キャラクター図鑑（コレクション）
+   - 取得状況・出した人（複数）を localStorage に保存
+   - グリッド：グループ / ニックネーム / MBTI の3情報
+   - カード選択で詳細（説明＋出した人メモ）を表示
+   ========================================================= */
+const DEX_KEY = "karaoke_mbti_dex_v1";
+const DEX_ORDER = [
+  "INTJ","INTP","ENTJ","ENTP",   // 分析家
+  "INFJ","INFP","ENFJ","ENFP",   // 外交官
+  "ISTJ","ISFJ","ESTJ","ESFJ",   // 番人
+  "ISTP","ISFP","ESTP","ESFP"    // 探検家
+];
+let dexAutoTimer = null;
+let dexCurrentMbti = null;
+
+const dexOverlay = document.getElementById("dexOverlay");
+const dexGrid    = document.getElementById("dexGrid");
+const dexDetail  = document.getElementById("dexDetail");
+const dexCount   = document.getElementById("dexCount");
+
+function loadDex(){
+  let dex;
+  try{ dex = JSON.parse(localStorage.getItem(DEX_KEY)) || {}; }catch(e){ dex = {}; }
+  // 旧形式(note:string) → 新形式(people:array) へ移行
+  for(const m in dex){
+    const e = dex[m];
+    if(e && !Array.isArray(e.people)){
+      const n = e.note && String(e.note).trim();
+      e.people = n ? [n] : [];
+      delete e.note;
+    }
+  }
+  return dex;
+}
+function saveDex(dex){
+  try{ localStorage.setItem(DEX_KEY, JSON.stringify(dex)); }catch(e){}
+}
+function escHtml(s){
+  return String(s==null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function allCharacters(){
+  return DEX_ORDER.map(mbti=>{
+    const d = MBTI_DESCRIPTIONS[mbti];
+    return { mbti, nickname:d.nickname, image:`character/${mbti}_${d.nickname}.png` };
+  });
+}
+
+/* ---- グリッド（グループ / ニックネーム / MBTI の3情報） ---- */
+function buildDexGrid(dex, currentMbti, isNew){
+  const chars = allCharacters();
+  const gotCount = chars.filter(c=>dex[c.mbti] && dex[c.mbti].obtained).length;
+  dexCount.textContent = `${gotCount} / ${chars.length}`;
+
+  dexGrid.innerHTML = chars.map(c=>{
+    const e = dex[c.mbti];
+    const has = e && e.obtained;
+    const cur = c.mbti === currentMbti;
+    const g = typeGroup(c.mbti);
+    if(has){
+      const label = e.label || c.mbti;
+      return `
+        <div class="dex-card got ${g.cls} ${cur?'is-current':''} ${cur&&isNew?'is-new':''}" data-mbti="${c.mbti}">
+          ${cur&&isNew ? '<span class="dex-badge">NEW!</span>' : ''}
+          <div class="dex-img"><img src="${c.image}" alt=""></div>
+          <div class="dex-group">${escHtml(g.name)}</div>
+          <div class="dex-name">${escHtml(c.nickname)}</div>
+          <div class="dex-mbti">${escHtml(label)}</div>
+        </div>`;
+    }
+    return `
+      <div class="dex-card locked">
+        <div class="dex-img"><span class="dex-q">?</span></div>
+        <div class="dex-name">???</div>
+      </div>`;
+  }).join("");
+
+  // カード選択 → 詳細へ
+  dexGrid.querySelectorAll(".dex-card.got").forEach(card=>{
+    card.onclick = ()=> openDetail(card.dataset.mbti);
+  });
+
+  // 今回のキャラを中央にスクロール
+  if(currentMbti){
+    const curEl = dexGrid.querySelector(".dex-card.is-current");
+    if(curEl) setTimeout(()=>curEl.scrollIntoView({block:"center", behavior:"smooth"}), 60);
+  }
+}
+
+/* ---- 詳細（説明＋出した人メモ） ---- */
+function openDetail(mbti){
+  const dex = loadDex();
+  const e = dex[mbti];
+  if(!e || !e.obtained) return;
+  dexCurrentMbti = mbti;
+
+  const info  = MBTI_DESCRIPTIONS[mbti];
+  const g     = typeGroup(mbti);
+  const label = e.label || mbti;
+  const image = `character/${mbti}_${info.nickname}.png`;
+
+  dexDetail.className = `dex-detail ${g.cls}`;
+  dexDetail.innerHTML = `
+    <button class="dex-detail-back" type="button">← 一覧に戻る</button>
+    <div class="dex-detail-top">
+      <img class="dex-detail-img" src="${image}" alt="">
+      <div class="dex-detail-info">
+        <div class="dex-detail-group">${escHtml(g.name)}</div>
+        <div class="dex-detail-name">${escHtml(info.nickname)}</div>
+        <div class="dex-detail-mbti">${escHtml(label)}</div>
+      </div>
+    </div>
+    <div class="dex-detail-desc">${escHtml(info.text)}</div>
+    <div class="dex-people">
+      <div class="dex-people-title">🎤 このキャラを出した人</div>
+      <ul class="dex-people-list" id="dexPeopleList"></ul>
+      <div class="dex-people-add">
+        <input class="dex-people-input" id="dexPersonInput" type="text"
+               placeholder="名前を入力して追加" maxlength="30">
+        <button class="dex-people-addbtn" id="dexPersonAdd" type="button">追加</button>
+      </div>
+    </div>
+  `;
+  renderPeople();
+
+  dexGrid.hidden = true;
+  dexDetail.hidden = false;
+  const body = dexOverlay.querySelector(".dex-body");
+  if(body) body.scrollTop = 0;
+
+  dexDetail.querySelector(".dex-detail-back").onclick = ()=>{
+    dexDetail.hidden = true;
+    dexGrid.hidden = false;
+  };
+  const input  = document.getElementById("dexPersonInput");
+  const addBtn = document.getElementById("dexPersonAdd");
+  function addPerson(){
+    const name = input.value.trim();
+    if(!name) return;
+    const dx = loadDex();
+    if(!dx[mbti]) dx[mbti] = { obtained:true, label, people:[] };
+    if(!Array.isArray(dx[mbti].people)) dx[mbti].people = [];
+    dx[mbti].people.push(name);
+    saveDex(dx);
+    input.value = "";
+    renderPeople();
+    input.focus();
+  }
+  addBtn.onclick = addPerson;
+  input.addEventListener("keydown", ev=>{ if(ev.key==="Enter") addPerson(); });
+}
+
+/* ---- 出した人リスト（箇条書き・複数人） ---- */
+function renderPeople(){
+  const ul = document.getElementById("dexPeopleList");
+  if(!ul) return;
+  const dex = loadDex();
+  const people = (dex[dexCurrentMbti] && dex[dexCurrentMbti].people) || [];
+  if(!people.length){
+    ul.innerHTML = `<li class="dex-people-empty">まだ登録がありません</li>`;
+    return;
+  }
+  ul.innerHTML = people.map((p,i)=>`
+    <li><span class="dex-person-name">${escHtml(p)}</span>
+    <button class="dex-people-remove" data-i="${i}" type="button" aria-label="削除">×</button></li>
+  `).join("");
+  ul.querySelectorAll(".dex-people-remove").forEach(btn=>{
+    btn.onclick = ()=>{
+      const dx = loadDex();
+      const arr = (dx[dexCurrentMbti] && dx[dexCurrentMbti].people) || [];
+      arr.splice(Number(btn.dataset.i), 1);
+      saveDex(dx);
+      renderPeople();
+    };
+  });
+}
+
+/* ---- 開閉 ---- */
+function openDex(currentMbti, label){
+  const dex = loadDex();
+  const isNew = !!currentMbti && !(dex[currentMbti] && dex[currentMbti].obtained);
+  if(currentMbti){
+    if(!dex[currentMbti]) dex[currentMbti] = { obtained:true, label:label||currentMbti, people:[] };
+    dex[currentMbti].obtained = true;
+    if(label) dex[currentMbti].label = label;
+    if(!Array.isArray(dex[currentMbti].people)) dex[currentMbti].people = [];
+    saveDex(dex);
+  }
+  dexCurrentMbti = currentMbti || null;
+  dexDetail.hidden = true;   // 常に一覧から表示
+  dexGrid.hidden = false;
+  buildDexGrid(dex, currentMbti, isNew);
+  dexOverlay.style.display = "flex";
+  requestAnimationFrame(()=> dexOverlay.classList.add("show"));   // フェードイン
+}
+
+function closeDex(){
+  dexOverlay.classList.remove("show");                            // フェードアウト
+  setTimeout(()=>{ dexOverlay.style.display = "none"; }, 350);
+}
+
+document.getElementById("dexCloseBtn").onclick = closeDex;
+document.getElementById("dexBackBtn").onclick  = closeDex;
+dexOverlay.addEventListener("click", e=>{ if(e.target === dexOverlay) closeDex(); });
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && dexOverlay.classList.contains("show")) closeDex();
+});
+
 const topOverlay = document.getElementById("topOverlay");
 const startBtn = document.getElementById("startBtn");
 
