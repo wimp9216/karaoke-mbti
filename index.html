@@ -1040,7 +1040,7 @@ body.result-mode .deck{
 
   /* ---------- 結果画面 ---------- */
   body.result-mode .stage{
-    padding-top: 92px;
+    padding-top: 112px;   /* 楽曲フロー付きヘッダー分を確保 */
     padding-bottom: 36px;
   }
   body.result-mode .deck{
@@ -1476,6 +1476,59 @@ body{
 /* ▲▲▲ キャラクター図鑑 ここまで */
 
 
+/* =========================================================
+   進捗バー = 楽曲の構成フロー（Aメロ→Bメロ→サビ→…）
+   ========================================================= */
+.song-flow{
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.flow-seg{
+  flex-grow: 1;           /* インラインで count に上書き */
+  flex-basis: 0;
+  min-width: 0;
+}
+.flow-bar{
+  height: 6px;
+  background: rgba(255,255,255,0.14);
+  border-radius: 999px;
+  overflow: hidden;
+  transition: box-shadow .2s ease;
+}
+.flow-bar-fill{
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg,#ff2d9b,#7a5cff);
+  transition: width .35s ease;
+}
+.flow-label{
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255,255,255,0.42);
+  transition: color .2s ease, text-shadow .2s ease;
+}
+.flow-seg.is-done .flow-label{ color: rgba(255,255,255,0.72); }
+.flow-seg.is-current .flow-bar{
+  box-shadow: 0 0 0 1px rgba(255,45,155,.45), 0 0 10px rgba(255,45,155,.4);
+}
+.flow-seg.is-current .flow-label{
+  color: #ff6fc0;
+  text-shadow: 0 0 8px rgba(255,45,155,.6);
+}
+@media (max-width: 768px){
+  .song-flow{ gap: 3px; }
+  .flow-label{ font-size: 9px; }
+}
+
+
 </style>
 </head>
 
@@ -1499,8 +1552,8 @@ body{
 
 <div class="header">
   <h1>カラオケ性格診断</h1>
-  <div class="progress-wrap"><div id="bar" class="progress-bar"></div></div>
-  <div id="progressNum" class="progress-num">1 / 20</div>
+  <div id="songFlow" class="song-flow"></div>
+  <div id="progressNum" class="progress-num">Aメロ　1 / 20</div>
 </div>
 
 <div class="stage">
@@ -1527,7 +1580,7 @@ body{
 
 <script>
 const deck=document.getElementById("deck");
-const bar=document.getElementById("bar");
+const songFlow=document.getElementById("songFlow");
 
 // 7段階（左=当てはまらない/紫 ～ 右=当てはまる/緑）
 const SCALE=[
@@ -1728,10 +1781,48 @@ let questions=QUESTIONS,current=0,answers={},anim=false;
 
 const progressNum=document.getElementById("progressNum");
 
+/* 進捗バー = 楽曲の構成フロー（Aメロ→Bメロ→サビ→Aメロ→Bメロ→ラスサビ） */
+const SONG_SECTIONS=[
+  {name:"Aメロ",   count:4},
+  {name:"Bメロ",   count:3},
+  {name:"サビ",    count:3},
+  {name:"Aメロ",   count:4},
+  {name:"Bメロ",   count:3},
+  {name:"ラスサビ", count:3}
+];  // 合計20（questions.length と一致）
+
+function buildSongFlow(){
+  songFlow.innerHTML = SONG_SECTIONS.map((s,i)=>`
+    <div class="flow-seg" data-i="${i}" style="flex-grow:${s.count}">
+      <div class="flow-bar"><div class="flow-bar-fill"></div></div>
+      <span class="flow-label">${s.name}</span>
+    </div>
+  `).join("");
+}
+
 function updateBar(){
-  bar.style.width=(current/questions.length*100)+"%";
-  const n=Math.min(current+1,questions.length);
-  progressNum.textContent=`${n} / ${questions.length}`;
+  const total = questions.length;
+  const answered = Math.min(current, total);   // 回答済み数
+  let cum = 0, curName = "";
+  SONG_SECTIONS.forEach((s,i)=>{
+    const seg = songFlow.children[i];
+    if(!seg) return;
+    const fill  = seg.querySelector(".flow-bar-fill");
+    const start = cum, end = cum + s.count;
+    let pct = 0;
+    if(answered >= end)      pct = 100;
+    else if(answered > start) pct = (answered - start) / s.count * 100;
+    fill.style.width = pct + "%";
+    seg.classList.toggle("is-done", answered >= end);
+    const isCur = current >= start && current < end && current < total;
+    seg.classList.toggle("is-current", isCur);
+    if(isCur) curName = s.name;
+    cum = end;
+  });
+  const n = Math.min(current+1, total);
+  progressNum.textContent = (current >= total)
+    ? `フィナーレ！　${total} / ${total}`
+    : `${curName}　${n} / ${total}`;
 }
 
 // MBTI を4グループに分類（結果画面のテーマ色・バッジ用）
@@ -1883,7 +1974,7 @@ function makeCard(i,pos){
 
 
 function fetchResult(){
-  bar.style.width = "100%"
+  updateBar();                       // 楽曲フローを完走状態に
   document.body.classList.add("result-mode");
 
   const d = diagnose(answers);
@@ -2014,8 +2105,7 @@ function fetchResult(){
       closeDex();
       current = 0;
       answers = {};
-      bar.style.width = "0%";
-      progressNum.textContent = `1 / ${questions.length}`;
+      updateBar();                   // 楽曲フローを先頭に戻す
 
       // ★ 結果表示モードを解除して質問画面レイアウトに戻す
       document.body.classList.remove("result-mode");
@@ -2242,6 +2332,7 @@ startBtn.onclick = () => {
 };
 
 // ===== 初期表示 =====
+buildSongFlow();
 render();
 updateBar();
 </script>
