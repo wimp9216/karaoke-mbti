@@ -1400,6 +1400,10 @@ body{
 }
 .dex-detail-name{ font-size: 26px; font-weight: 900; color: #fff; line-height: 1.2; }
 .dex-detail-mbti{ margin-top: 5px; font-size: 14px; font-weight: 700; letter-spacing: .14em; color: rgba(255,255,255,.6); }
+.dex-detail-rarity{ display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 10px; }
+.dex-detail-rarity .dex-rarity-label{ font-size: 12px; font-weight: 800; letter-spacing: .14em; color: rgba(255,255,255,.55); }
+.dex-detail-rarity .dex-rarity-stars{ display: inline-flex; gap: 3px; }
+.dex-rarity-star{ width: 24px; height: 24px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(255,205,70,.55)); }
 .dex-detail-desc{
   font-size: 15px; line-height: 1.85; color: #dfe1ec;
   background: rgba(255,255,255,0.04); border-radius: 12px;
@@ -1473,6 +1477,7 @@ body{
   .dex-detail-top{ flex-direction: column; text-align: center; gap: 14px; }
   .dex-detail-img{ width: 170px; height: 180px; }
   .dex-detail-name{ font-size: 22px; }
+  .dex-rarity-star{ width: 20px; height: 20px; }
 }
 /* ▲▲▲ キャラクター図鑑 ここまで */
 
@@ -2206,6 +2211,21 @@ function buildDexGrid(dex, currentMbti, isNew){
   }
 }
 
+/* ---- レア度（回答計算の出やすさに基づく：☆3普通〜☆5めずらしい）----
+   E/S/T/J が出やすいポール、I/N/F/P が出にくいポール。
+   出にくいポールを多く含む型ほどレアになる。 */
+function rarityLevel(mbti){
+  const minority = (mbti.match(/[INFP]/g) || []).length; // I/N/F/P の数
+  if(minority >= 3) return 5;   // めずらしい
+  if(minority === 2) return 4;
+  return 3;                     // 普通
+}
+function rarityStarsHtml(mbti){
+  const n = rarityLevel(mbti);
+  return Array.from({length:n},
+    ()=>'<img class="dex-rarity-star" src="character/star.png" alt="">').join("");
+}
+
 /* ---- 詳細（説明＋出した人メモ） ---- */
 function openDetail(mbti){
   const dex = loadDex();
@@ -2222,12 +2242,16 @@ function openDetail(mbti){
   dexDetail.innerHTML = `
     <button class="dex-detail-back" type="button">一覧に戻る</button>
     <div class="dex-detail-top">
-      <img class="dex-detail-img" src="${image}" alt="">
       <div class="dex-detail-info">
         <div class="dex-detail-group">${escHtml(g.name)}</div>
         <div class="dex-detail-name">${escHtml(info.nickname)}</div>
         <div class="dex-detail-mbti">${escHtml(label)}</div>
+        <div class="dex-detail-rarity" title="レア度 ${rarityLevel(mbti)}">
+          <span class="dex-rarity-label">レア度</span>
+          <span class="dex-rarity-stars">${rarityStarsHtml(mbti)}</span>
+        </div>
       </div>
+      <img class="dex-detail-img" src="${image}" alt="">
     </div>
     <div class="dex-detail-desc">${escHtml(info.text)}</div>
     <div class="dex-people">
