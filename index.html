@@ -2138,12 +2138,17 @@ function fetchResult(){
       if(document.body.classList.contains("result-mode")) openDex(d.mbti, d.display_mbti);
     }, 1800);
 
-    /* ★ ☆5モーション：最初に動画を再生 → 終了で自然に静止画へ。画像タップで再生し直し */
+    /* ★ ☆5モーション：まず動画を必ず再生 → 終了で静止画へ → 図鑑。画像タップで再生し直し */
     const charVideo = res.querySelector("#charVideo");
     if(charVideo){
       const charMedia = res.querySelector("#charMedia");
       let firstReveal = true;
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      // 動的挿入した<video>ではmuted"属性"が効かず自動再生がブロックされる環境がある
+      // （特にPCのChrome）。プロパティを明示設定して確実にミュート自動再生させる。
+      charVideo.muted = true;
+      charVideo.defaultMuted = true;
+      charVideo.playsInline = true;
 
       // 静止画になり切ってから図鑑を自動表示（初回のみ／既定の1800msは保留）
       const revealDexAfterStill = () => {
@@ -2167,22 +2172,24 @@ function fetchResult(){
       const playMotion = () => {
         charMedia.classList.remove("show-still");        // 静止画を隠し
         charVideo.classList.remove("hide");              // 動画から見せる
+        charVideo.muted = true;
         try{ charVideo.currentTime = 0; }catch(e){}
         const p = charVideo.play();
-        if(p && p.catch) p.catch(settleToStill);         // 自動再生ブロック時は静止画へ
+        if(p && p.catch) p.catch(() => {
+          // すぐ再生できない場合は準備完了時にもう一度だけ試す
+          charVideo.addEventListener("canplay", () => {
+            const p2 = charVideo.play();
+            if(p2 && p2.catch) p2.catch(settleToStill); // それでも不可なら静止画→図鑑
+          }, { once:true });
+        });
       };
 
       charVideo.addEventListener("ended", settleToStill);
       charVideo.addEventListener("error", settleToStill);
       charMedia.addEventListener("click", playMotion);   // タップで再度動かす
 
-      clearTimeout(dexAutoTimer);                         // 既定の自動表示をキャンセル
-      if(reduceMotion){                                   // 動きを抑える設定：静止画を即表示
-        charMedia.classList.add("show-still");
-        charVideo.classList.add("hide");
-        firstReveal = false;
-        revealDexAfterStill();
-      } else { playMotion(); }
+      clearTimeout(dexAutoTimer);                         // 既定(1800ms)の自動表示をキャンセル
+      playMotion();                                       // OSの「動きを減らす」設定でもレア演出は再生
     }
 
     /* ★ 結果のコピー / シェア */
