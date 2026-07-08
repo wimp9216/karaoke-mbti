@@ -2231,14 +2231,18 @@ function buildDexGrid(dex, currentMbti, isNew){
   }
 }
 
-/* ---- レア度（回答計算の出やすさに基づく：☆3普通〜☆5めずらしい）----
-   E/S/T/J が出やすいポール、I/N/F/P が出にくいポール。
-   出にくいポールを多く含む型ほどレアになる。 */
+/* ---- レア度（回答の"作為性"に基づく：☆3普通〜☆5めずらしい）----
+   同じボタン連打や左右交互など、規則的（＝機械的）な入力で量産できる型ほど
+   レア度を下げ、素直に多様な回答をしないと出ない型ほどレアにする。
+   採点の仕組み上、交互入力では必ず E/I は T/F と、S/N は J/P と同じ側に振れる。
+     ・2ペアとも揃う型（ESTJ/ENTP/ISFJ/INFP）… 連打・交互で量産できる → ☆3
+     ・1ペアだけ揃う型（8種）………………………… 一部だけ規則入力で出せる → ☆4
+     ・どちらも揃わない型（INTJ/ISTP/ENFJ/ESFP）… 規則入力では出せない  → ☆5 */
 function rarityLevel(mbti){
-  const minority = (mbti.match(/[INFP]/g) || []).length; // I/N/F/P の数
-  if(minority >= 3) return 5;   // めずらしい
-  if(minority === 2) return 4;
-  return 3;                     // 普通
+  const aligned =
+      ((mbti[0]==='E') === (mbti[2]==='T') ? 1 : 0) +  // E/I と T/F が同方向
+      ((mbti[1]==='S') === (mbti[3]==='J') ? 1 : 0);   // S/N と J/P が同方向
+  return 5 - aligned;   // 2→☆3(普通) / 1→☆4 / 0→☆5(めずらしい)
 }
 function rarityStarsHtml(mbti){
   const n = rarityLevel(mbti);
