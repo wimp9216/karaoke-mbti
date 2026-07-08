@@ -1574,8 +1574,9 @@ body{
 
 /* ☆5モーション：静止画に動画を重ねて再生し、終了で自然にフェード→静止画へ。
    タップで再生し直せるよう .char-media 全体をクリック領域にする */
-.char-media{ position: relative; display: inline-block; line-height: 0; cursor: pointer; }
-.char-media > .character-image{ position: relative; z-index: 1; }
+.char-media{ position: relative; display: inline-block; line-height: 0; font-size: 0; cursor: pointer; }
+/* display:block でインライン画像の下端余白を消し、動画(100%)と寸法を完全一致させる */
+.char-media > .character-image{ display: block; position: relative; z-index: 1; }
 .character-video{
   position: absolute; inset: 0; z-index: 2;
   width: 100%; height: 100%;
@@ -2142,16 +2143,23 @@ function fetchResult(){
       let firstReveal = true;
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-      // 図鑑の自動表示は動画の演出が終わってから（既定の1800msは保留）
-      const scheduleDexReveal = () => {
+      // 静止画になり切ってから図鑑を自動表示（初回のみ／既定の1800msは保留）
+      const revealDexAfterStill = () => {
         clearTimeout(dexAutoTimer);
         dexAutoTimer = setTimeout(() => {
           if(document.body.classList.contains("result-mode")) openDex(d.mbti, d.display_mbti);
-        }, 1200);
+        }, 700);   // 静止画を少し見せてから
       };
       const settleToStill = () => {
-        charVideo.classList.add("hide");                 // フェードして静止画を見せる
-        if(firstReveal){ firstReveal = false; scheduleDexReveal(); }
+        charVideo.classList.add("hide");                 // 0.6sフェードで静止画へ
+        if(firstReveal){
+          firstReveal = false;
+          let done = false;
+          const afterFade = () => { if(done) return; done = true; revealDexAfterStill(); };
+          // 動画が完全に消え（＝静止画になり切って）から図鑑へ
+          charVideo.addEventListener("transitionend", afterFade, { once:true });
+          setTimeout(afterFade, 1000);                   // transitionend不発時の保険
+        }
       };
       const playMotion = () => {
         charVideo.classList.remove("hide");
