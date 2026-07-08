@@ -1562,22 +1562,13 @@ body{
                        0 0 60px 16px rgba(140,120,255,.62),
                        0 0 96px 30px rgba(90,220,180,.46); }
 }
-/* 足元を軸にゆらす“アイドルモーション”（1枚絵でも生きている感じを出す） */
-@keyframes rareIdle {
-  0%,100%{ transform: translateY(0)      rotate(0deg);    }
-  25%    { transform: translateY(-5px)   rotate(0.9deg);  }
-  50%    { transform: translateY(-7px)   rotate(0deg);    }
-  75%    { transform: translateY(-5px)   rotate(-0.9deg); }
-}
-/* 画像に直接付与：金色の縁＋虹色の脈動グロー＋ゆらぎ */
+/* 画像に直接付与：金色の縁＋虹色の脈動グロー */
 img.rare-aura{
   border: 2px solid rgba(255,228,150,.95);
-  transform-origin: bottom center;
-  animation: rareGlow 2.4s ease-in-out infinite,
-             rareIdle 4.2s ease-in-out infinite;
+  animation: rareGlow 2.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce){
-  img.rare-aura{ animation: none; transform: none;
+  img.rare-aura{ animation: none;
     box-shadow: 0 0 24px 6px rgba(255,214,90,.95), 0 0 60px 16px rgba(140,120,255,.55); }
 }
 
