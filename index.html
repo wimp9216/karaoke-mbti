@@ -1575,8 +1575,10 @@ body{
 /* ☆5モーション：静止画に動画を重ねて再生し、終了で自然にフェード→静止画へ。
    タップで再生し直せるよう .char-media 全体をクリック領域にする */
 .char-media{ position: relative; display: inline-block; line-height: 0; font-size: 0; cursor: pointer; }
-/* display:block でインライン画像の下端余白を消し、動画(100%)と寸法を完全一致させる */
-.char-media > .character-image{ display: block; position: relative; z-index: 1; }
+/* display:block でインライン画像の下端余白を消し、動画(100%)と寸法を完全一致させる。
+   初期は静止画を隠して動画から見せ、動画終了時に .show-still でフェードイン */
+.char-media > .character-image{ display: block; position: relative; z-index: 1; opacity: 0; transition: opacity .6s ease; }
+.char-media.show-still > .character-image{ opacity: 1; }
 .character-video{
   position: absolute; inset: 0; z-index: 2;
   width: 100%; height: 100%;
@@ -2151,7 +2153,8 @@ function fetchResult(){
         }, 700);   // 静止画を少し見せてから
       };
       const settleToStill = () => {
-        charVideo.classList.add("hide");                 // 0.6sフェードで静止画へ
+        charVideo.classList.add("hide");                 // 動画をフェードアウト
+        charMedia.classList.add("show-still");           // 静止画をフェードイン（クロスフェード）
         if(firstReveal){
           firstReveal = false;
           let done = false;
@@ -2162,7 +2165,8 @@ function fetchResult(){
         }
       };
       const playMotion = () => {
-        charVideo.classList.remove("hide");
+        charMedia.classList.remove("show-still");        // 静止画を隠し
+        charVideo.classList.remove("hide");              // 動画から見せる
         try{ charVideo.currentTime = 0; }catch(e){}
         const p = charVideo.play();
         if(p && p.catch) p.catch(settleToStill);         // 自動再生ブロック時は静止画へ
@@ -2173,8 +2177,12 @@ function fetchResult(){
       charMedia.addEventListener("click", playMotion);   // タップで再度動かす
 
       clearTimeout(dexAutoTimer);                         // 既定の自動表示をキャンセル
-      if(reduceMotion){ settleToStill(); }                // 動きを抑える設定なら静止画のまま
-      else { playMotion(); }
+      if(reduceMotion){                                   // 動きを抑える設定：静止画を即表示
+        charMedia.classList.add("show-still");
+        charVideo.classList.add("hide");
+        firstReveal = false;
+        revealDexAfterStill();
+      } else { playMotion(); }
     }
 
     /* ★ 結果のコピー / シェア */
