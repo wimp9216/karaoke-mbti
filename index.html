@@ -1385,7 +1385,8 @@ body{
   color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
 }
 .dex-detail-back:hover{ background: rgba(255,255,255,.14); }
-.dex-detail-top{ display: flex; gap: 22px; align-items: center; margin-bottom: 18px; }
+.dex-detail-top{ display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center; margin-bottom: 18px; }
+.dex-detail-info{ text-align: center; }
 .dex-detail-img{
   width: 190px; height: 200px; flex-shrink: 0;
   object-fit: cover; object-position: center; border-radius: 14px;
@@ -1403,7 +1404,7 @@ body{
   font-size: 15px; line-height: 1.85; color: #dfe1ec;
   background: rgba(255,255,255,0.04); border-radius: 12px;
   padding: 14px 16px; margin-bottom: 20px;
-  white-space: pre-line;
+  white-space: pre-line; text-align: center;
 }
 
 /* ---- 出した人メモ（複数人・箇条書き） ---- */
@@ -2042,7 +2043,7 @@ function fetchResult(){
         </div>
 
         <div class="retry-wrap">
-          <button id="openDexBtn" class="dex-open-btn" type="button">📖 キャラ図鑑を見る</button>
+          <button id="openDexBtn" class="dex-open-btn" type="button">キャラ図鑑を見る</button>
           <button id="retryBtn" class="retry-btn">もう一度診断する</button>
         </div>
       </div>
@@ -2219,7 +2220,7 @@ function openDetail(mbti){
 
   dexDetail.className = `dex-detail ${g.cls}`;
   dexDetail.innerHTML = `
-    <button class="dex-detail-back" type="button">← 一覧に戻る</button>
+    <button class="dex-detail-back" type="button">一覧に戻る</button>
     <div class="dex-detail-top">
       <img class="dex-detail-img" src="${image}" alt="">
       <div class="dex-detail-info">
@@ -2230,7 +2231,7 @@ function openDetail(mbti){
     </div>
     <div class="dex-detail-desc">${escHtml(info.text)}</div>
     <div class="dex-people">
-      <div class="dex-people-title">🎤 このキャラを出した人</div>
+      <div class="dex-people-title">このキャラを出した人</div>
       <ul class="dex-people-list" id="dexPeopleList"></ul>
       <div class="dex-people-add">
         <input class="dex-people-input" id="dexPersonInput" type="text"
