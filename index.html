@@ -331,6 +331,16 @@ font-size: 40px;
   color: #666;
   margin-bottom: 20px; /* 説明文との距離も少し広げる */
 }
+.result-rarity{
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: -8px;
+  margin-bottom: 20px;
+}
+.result-rarity .dex-rarity-label{ font-size: 12px; font-weight: 800; letter-spacing: .14em; color: #888; }
+.result-rarity .dex-rarity-stars{ display: inline-flex; gap: 3px; }
+.result-rarity .dex-rarity-star{ width: 22px; height: 22px; }
 
 .result-description{
   font-size: 20px;
@@ -1077,6 +1087,12 @@ body.result-mode .deck{
     font-size: 15px;
     margin-bottom: 6px;
   }
+  .result-rarity{
+    justify-content: center;
+    margin-top: 0;
+    margin-bottom: 8px;
+  }
+  .result-rarity .dex-rarity-star{ width: 20px; height: 20px; }
   .result-description{
     font-size: 16px;
     line-height: 1.75;
@@ -2002,6 +2018,10 @@ function fetchResult(){
           <div class="result-group">${g.name}</div>
           <div class="result-nickname">${d.nickname}</div>
           <div class="result-mbti">${d.display_mbti}</div>
+          <div class="result-rarity" title="レア度 ${rarityLevel(d.mbti)}">
+            <span class="dex-rarity-label">レア度</span>
+            <span class="dex-rarity-stars">${rarityStarsHtml(d.mbti)}</span>
+          </div>
         </div>
 
         <!-- キャラクター画像 -->
