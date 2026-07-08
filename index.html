@@ -1550,6 +1550,27 @@ body{
   .flow-label{ font-size: 9px; }
 }
 
+/* =========================================================
+   ☆5（めずらしい）キャラのレアエフェクト
+   キャラ画像の周囲に虹色オーラを脈動させて「レア」を強調（DOM構造は変えない）
+   ========================================================= */
+@keyframes rareGlow {
+  0%,100%{ box-shadow: 0 0 16px 3px rgba(255,214,90,.85),
+                       0 0 40px 9px rgba(255,110,199,.50),
+                       0 0 70px 18px rgba(90,180,255,.32); }
+  50%    { box-shadow: 0 0 26px 7px rgba(255,214,90,1),
+                       0 0 60px 16px rgba(140,120,255,.62),
+                       0 0 96px 30px rgba(90,220,180,.46); }
+}
+/* 画像に直接付与：金色の縁＋虹色の脈動グロー */
+img.rare-aura{
+  border: 2px solid rgba(255,228,150,.95);
+  animation: rareGlow 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce){
+  img.rare-aura{ animation: none;
+    box-shadow: 0 0 24px 6px rgba(255,214,90,.95), 0 0 60px 16px rgba(140,120,255,.55); }
+}
 
 </style>
 </head>
@@ -1738,9 +1759,10 @@ function scoreAnswers(qs,ans){
 }
 
 function judgeAxis(score,pos,neg){
-  if(score>THRESHOLD) return pos;
-  if(score<-THRESHOLD) return neg;
-  return Math.random()<0.5?pos:neg; // 差が小さい場合は揺らぎを許容
+  // 連打・左右交互・真ん中固定といった規則的な入力でも結果が揺らがないよう、
+  // 乱数を使わずスコアの符号だけで確定させる（同点0は多数派ポール側 pos に寄せる）。
+  // これにより規則的な入力は必ず☆3の型に落ち、☆5は素直な回答でしか出ない。
+  return score>=0 ? pos : neg;
 }
 
 function determineMbti(s){
@@ -2026,7 +2048,7 @@ function fetchResult(){
 
         <!-- キャラクター画像 -->
         <div class="result-character">
-          <img src="${d.character_image}" class="character-image">
+          <img src="${d.character_image}" class="character-image ${rarityLevel(d.mbti)===5?'rare-aura':''}">
         </div>
 
         <!-- 本文：説明 / 軸バー -->
@@ -2275,7 +2297,7 @@ function openDetail(mbti){
           <span class="dex-rarity-stars">${rarityStarsHtml(mbti)}</span>
         </div>
       </div>
-      <img class="dex-detail-img" src="${image}" alt="">
+      <img class="dex-detail-img ${rarityLevel(mbti)===5?'rare-aura':''}" src="${image}" alt="">
     </div>
     <div class="dex-detail-desc">${escHtml(info.text)}</div>
     <div class="dex-people">
