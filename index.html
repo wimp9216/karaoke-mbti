@@ -1562,14 +1562,30 @@ body{
                        0 0 60px 16px rgba(140,120,255,.62),
                        0 0 96px 30px rgba(90,220,180,.46); }
 }
-/* 画像に直接付与：金色の縁＋虹色の脈動グロー */
-img.rare-aura{
+/* 画像／動画に付与：金色の縁＋虹色の脈動グロー */
+.rare-aura{
   border: 2px solid rgba(255,228,150,.95);
   animation: rareGlow 2.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce){
-  img.rare-aura{ animation: none;
+  .rare-aura{ animation: none;
     box-shadow: 0 0 24px 6px rgba(255,214,90,.95), 0 0 60px 16px rgba(140,120,255,.55); }
+}
+
+/* ☆5モーション：静止画に動画を重ねて再生し、終了で自然にフェード→静止画へ。
+   タップで再生し直せるよう .char-media 全体をクリック領域にする */
+.char-media{ position: relative; display: inline-block; line-height: 0; cursor: pointer; }
+.char-media > .character-image{ position: relative; z-index: 1; }
+.character-video{
+  position: absolute; inset: 0; z-index: 2;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center;
+  border-radius: 12px;
+  opacity: 1; transition: opacity .6s ease;
+}
+.character-video.hide{ opacity: 0; pointer-events: none; }
+@media (max-width: 768px){
+  .character-video{ border-radius: 16px; }
 }
 
 </style>
@@ -1740,6 +1756,11 @@ const SONGS=[
   {title:"コイスルオトメ",artist:"いきものがかり",number:"7219-02",jacket:"コイスルオトメ_いきものがかり.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=7219-02",E_I:0.5,S_N:-0.4,T_F:0.6,J_P:0.3},
   {title:"花束のかわりにメロディーを",artist:"清水翔太",number:"6919-39",jacket:"花束の代わりにメロディーを_清水翔太.jpg",link:"https://www.clubdam.com/karaokesearch/songleaf.html?requestNo=6919-39",E_I:0.2,S_N:-0.2,T_F:0.8,J_P:0.1}
 ];
+
+/* 動くキャラ（☆5モーション）: mbtiベース → 動画パス。無い型は静止画のみ表示 */
+const MOTION_MP4 = {
+  ENFJ: "character/ENFJ_カラオケプロデューサー.mp4"
+};
 
 /* =========================================================
    診断ロジック（旧 scorer / mbti / recommender を移植）
@@ -2046,9 +2067,15 @@ function fetchResult(){
           </div>
         </div>
 
-        <!-- キャラクター画像 -->
+        <!-- キャラクター画像（☆5モーション対応） -->
         <div class="result-character">
-          <img src="${d.character_image}" class="character-image ${rarityLevel(d.mbti)===5?'rare-aura':''}">
+          ${ MOTION_MP4[d.mbti] ? `
+          <div class="char-media" id="charMedia">
+            <img src="${d.character_image}" class="character-image ${rarityLevel(d.mbti)===5?'rare-aura':''}">
+            <video id="charVideo" class="character-video ${rarityLevel(d.mbti)===5?'rare-aura':''}"
+                   src="${MOTION_MP4[d.mbti]}" muted playsinline preload="auto"></video>
+          </div>` : `
+          <img src="${d.character_image}" class="character-image ${rarityLevel(d.mbti)===5?'rare-aura':''}">` }
         </div>
 
         <!-- 本文：説明 / 軸バー -->
@@ -2107,6 +2134,40 @@ function fetchResult(){
     dexAutoTimer = setTimeout(() => {
       if(document.body.classList.contains("result-mode")) openDex(d.mbti, d.display_mbti);
     }, 1800);
+
+    /* ★ ☆5モーション：最初に動画を再生 → 終了で自然に静止画へ。画像タップで再生し直し */
+    const charVideo = res.querySelector("#charVideo");
+    if(charVideo){
+      const charMedia = res.querySelector("#charMedia");
+      let firstReveal = true;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      // 図鑑の自動表示は動画の演出が終わってから（既定の1800msは保留）
+      const scheduleDexReveal = () => {
+        clearTimeout(dexAutoTimer);
+        dexAutoTimer = setTimeout(() => {
+          if(document.body.classList.contains("result-mode")) openDex(d.mbti, d.display_mbti);
+        }, 1200);
+      };
+      const settleToStill = () => {
+        charVideo.classList.add("hide");                 // フェードして静止画を見せる
+        if(firstReveal){ firstReveal = false; scheduleDexReveal(); }
+      };
+      const playMotion = () => {
+        charVideo.classList.remove("hide");
+        try{ charVideo.currentTime = 0; }catch(e){}
+        const p = charVideo.play();
+        if(p && p.catch) p.catch(settleToStill);         // 自動再生ブロック時は静止画へ
+      };
+
+      charVideo.addEventListener("ended", settleToStill);
+      charVideo.addEventListener("error", settleToStill);
+      charMedia.addEventListener("click", playMotion);   // タップで再度動かす
+
+      clearTimeout(dexAutoTimer);                         // 既定の自動表示をキャンセル
+      if(reduceMotion){ settleToStill(); }                // 動きを抑える設定なら静止画のまま
+      else { playMotion(); }
+    }
 
     /* ★ 結果のコピー / シェア */
     const shareText = `カラオケ性格診断の結果は「${d.nickname}（${d.display_mbti}）」でした！`;
