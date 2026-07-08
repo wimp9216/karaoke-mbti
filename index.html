@@ -1577,8 +1577,8 @@ body{
 .char-media{ position: relative; display: inline-block; line-height: 0; font-size: 0; cursor: pointer; }
 /* display:block でインライン画像の下端余白を消し、動画(100%)と寸法を完全一致させる。
    初期は静止画を隠して動画から見せ、動画終了時に .show-still でフェードイン */
-.char-media > .character-image{ display: block; position: relative; z-index: 1; opacity: 0; transition: opacity .6s ease; }
-.char-media.show-still > .character-image{ opacity: 1; }
+.char-media > img{ display: block; position: relative; z-index: 1; opacity: 0; transition: opacity .6s ease; }
+.char-media.show-still > img{ opacity: 1; }
 .character-video{
   position: absolute; inset: 0; z-index: 2;
   width: 100%; height: 100%;
@@ -1590,6 +1590,8 @@ body{
 @media (max-width: 768px){
   .character-video{ border-radius: 16px; }
 }
+/* 図鑑詳細では静止画(dex-detail-img)の角丸に合わせる */
+.dex-detail .character-video{ border-radius: 14px; }
 
 </style>
 </head>
@@ -2384,7 +2386,13 @@ function openDetail(mbti){
           <span class="dex-rarity-stars">${rarityStarsHtml(mbti)}</span>
         </div>
       </div>
-      <img class="dex-detail-img ${rarityLevel(mbti)===5?'rare-aura':''}" src="${image}" alt="">
+      ${ MOTION_MP4[mbti] ? `
+      <div class="char-media" id="dexCharMedia">
+        <img class="dex-detail-img ${rarityLevel(mbti)===5?'rare-aura':''}" src="${image}" alt="">
+        <video id="dexCharVideo" class="character-video ${rarityLevel(mbti)===5?'rare-aura':''}"
+               src="${MOTION_MP4[mbti]}" muted playsinline preload="auto"></video>
+      </div>` : `
+      <img class="dex-detail-img ${rarityLevel(mbti)===5?'rare-aura':''}" src="${image}" alt="">` }
     </div>
     <div class="dex-detail-desc">${escHtml(info.text)}</div>
     <div class="dex-people">
@@ -2403,6 +2411,30 @@ function openDetail(mbti){
   dexDetail.hidden = false;
   const body = dexOverlay.querySelector(".dex-body");
   if(body) body.scrollTop = 0;
+
+  /* ☆5モーション（図鑑詳細）：表示後に動画→静止画。画像タップで再生し直し（図鑑内なので遷移なし） */
+  const dVid = dexDetail.querySelector("#dexCharVideo");
+  if(dVid){
+    const dMedia = dexDetail.querySelector("#dexCharMedia");
+    dVid.muted = true; dVid.defaultMuted = true; dVid.playsInline = true;
+    const dSettle = () => { dVid.classList.add("hide"); dMedia.classList.add("show-still"); };
+    const dPlay = () => {
+      dMedia.classList.remove("show-still");
+      dVid.classList.remove("hide");
+      dVid.muted = true;
+      try{ dVid.currentTime = 0; }catch(e){}
+      const p = dVid.play();
+      if(p && p.catch) p.catch(() => {
+        dVid.addEventListener("canplay", () => {
+          const p2 = dVid.play(); if(p2 && p2.catch) p2.catch(dSettle);
+        }, { once:true });
+      });
+    };
+    dVid.addEventListener("ended", dSettle);
+    dVid.addEventListener("error", dSettle);
+    dMedia.addEventListener("click", dPlay);
+    dPlay();
+  }
 
   dexDetail.querySelector(".dex-detail-back").onclick = ()=>{
     dexDetail.hidden = true;
